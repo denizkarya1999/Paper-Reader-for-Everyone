@@ -1,0 +1,16 @@
+node_modules/
+dist/
+release/
+.env*
+*.log
+*.tsbuildinfo
+.DS_Store
+.agents/
+.codex/
+.openai/
+.sites-runtime/
+.wrangler/
+outputs/
+work/
+playwright-report/
+test-results/

@@ -1,0 +1,27 @@
+name: Build Linux installer
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run package:deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paper-reader-for-everyone-linux-amd64
+          path: release/*.deb
+          if-no-files-found: error
