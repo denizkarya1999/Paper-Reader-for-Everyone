@@ -5,7 +5,7 @@ import type { Note, Paper } from './reader-types';
 const META = PDFName.of('PaperReaderNotesV1');
 const COLORS = { yellow: [1, .84, .22], blue: [.4, .7, 1], pink: [1, .55, .7] };
 const rectSchema = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), width: z.number().positive().max(1), height: z.number().positive().max(1) });
-const noteSchema = z.object({ id: z.string().min(1).max(100), question: z.string().max(4000), answer: z.string().max(20000), color: z.enum(['yellow', 'blue', 'pink']), createdAt: z.string().datetime(), selection: z.object({ page: z.number().int().positive(), kind: z.enum(['text', 'area']), text: z.string().max(30000), rects: z.array(rectSchema).min(1).max(500) }) });
+const noteSchema = z.object({ id: z.string().min(1).max(100), question: z.string().max(4000), answer: z.string().max(20000), color: z.enum(['yellow', 'blue', 'pink']), createdAt: z.string().datetime(), selection: z.object({ page: z.number().int().positive(), kind: z.enum(['text', 'area', 'paper']), text: z.string().max(30000), rects: z.array(rectSchema).min(1).max(500) }) });
 
 // Stored rectangles use the displayed, rotated crop box. Convert each point back
 // to PDF user space so annotations stay aligned on rotated and cropped pages.
@@ -42,7 +42,7 @@ export async function exportPdf(paper: Paper): Promise<Uint8Array> {
   for (const note of validated) {
     const page = doc.getPage(note.selection.page - 1); const color = COLORS[note.color];
     let annots = page.node.Annots(); if (!annots) { annots = context.obj([]) as PDFArray; page.node.set(PDFName.of('Annots'), annots); }
-    note.selection.rects.forEach((rect, index) => {
+    (note.selection.kind === 'paper' ? [] : note.selection.rects).forEach((rect, index) => {
       const tl = pdfPoint(page, rect.x, rect.y), tr = pdfPoint(page, Math.min(1, rect.x + rect.width), rect.y);
       const bl = pdfPoint(page, rect.x, Math.min(1, rect.y + rect.height)), br = pdfPoint(page, Math.min(1, rect.x + rect.width), Math.min(1, rect.y + rect.height));
       const points = [tl, tr, bl, br]; const bounds = [Math.min(...points.map(p => p[0])), Math.min(...points.map(p => p[1])), Math.max(...points.map(p => p[0])), Math.max(...points.map(p => p[1]))];
@@ -51,12 +51,12 @@ export async function exportPdf(paper: Paper): Promise<Uint8Array> {
     });
     const rect = note.selection.rects[0]; const [x, y] = pdfPoint(page, Math.min(.94, rect.x + rect.width), rect.y);
     const body = note.question ? `Question: ${note.question}\n\n${note.answer}` : note.answer;
-    const sticky = context.obj({ Type: 'Annot', Subtype: 'Text', Rect: [x, y - 20, x + 20, y], Contents: PDFHexString.fromText(body), T: PDFHexString.fromText('Paper Reader for Everyone'), Subj: PDFHexString.fromText(`Page ${note.selection.page} note`), C: color, Name: 'Comment', Open: false, F: 4, NM: PDFString.of(`paper-reader:${note.id}:note`) });
+    const sticky = context.obj({ Type: 'Annot', Subtype: 'Text', Rect: [x, y - 20, x + 20, y], Contents: PDFHexString.fromText(body), T: PDFHexString.fromText('Paper Reader for Everyone'), Subj: PDFHexString.fromText(note.selection.kind === 'paper' ? 'Whole-paper note' : `Page ${note.selection.page} note`), C: color, Name: 'Comment', Open: false, F: 4, NM: PDFString.of(`paper-reader:${note.id}:note`) });
     const stickyRef = context.register(sticky); annots.push(stickyRef);
     const popup = context.obj({ Type: 'Annot', Subtype: 'Popup', Rect: [x, y - 180, x + 240, y], Parent: stickyRef, Open: false, NM: PDFString.of(`paper-reader:${note.id}:popup`) });
     const popupRef = context.register(popup); sticky.set(PDFName.of('Popup'), popupRef); annots.push(popupRef);
   }
-  doc.setProducer('Paper Reader for Everyone 1.0');
+  doc.setProducer('Paper Reader for Everyone 1.1');
   return doc.save();
 }
 
@@ -83,8 +83,8 @@ export async function examplePdf(): Promise<Uint8Array> {
   const page2 = doc.addPage([612, 792]);
   page2.drawText('Keep a useful margin.', { x: 62, y: 680, size: 30, font: bold, color: ink });
   page2.drawText('03   Make the note yours', { x: 62, y: 615, size: 17, font: bold, color: ink });
-  page2.drawText('A useful note records a question, an explanation, or a connection.\nKeep it short enough to be useful when you return to the paper.\n\nUse ChatGPT to clarify a selected passage, then check the answer\nagainst the source. The model can only see the selection you send.\n\nSave an annotated PDF to carry your notes into another PDF reader.\nYou can also reopen it here and continue editing.', { x: 62, y: 579, size: 13, lineHeight: 21, font: regular, color: ink });
-  page2.drawText('Paper Reader for Everyone 1.0 | Deniz K. Acikbas', { x: 62, y: 55, size: 9, font: sans, color: muted });
+  page2.drawText('A useful note records a question, an explanation, or a connection.\nKeep it short enough to be useful when you return to the paper.\n\nUse ChatGPT to clarify a selected passage, then check the answer\nagainst the source. Choose Whole paper to summarize the complete PDF.\n\nSave an annotated PDF to carry your notes into another PDF reader.\nYou can also reopen it here and continue editing.', { x: 62, y: 579, size: 13, lineHeight: 21, font: regular, color: ink });
+  page2.drawText('Paper Reader for Everyone 1.1 | Deniz K. Acikbas', { x: 62, y: 55, size: 9, font: sans, color: muted });
   page2.drawText('2', { x: 541, y: 55, size: 9, font: sans, color: muted });
   doc.setTitle('A little guide to reading research'); doc.setAuthor('Deniz K. Acikbas'); return doc.save();
 }

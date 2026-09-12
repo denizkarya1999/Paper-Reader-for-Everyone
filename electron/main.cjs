@@ -1,13 +1,19 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, session, Menu, protocol, net } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, session, Menu, protocol, net, safeStorage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { pathToFileURL } = require('node:url');
-const { askHandler } = require('../dist/ask.cjs');
+const { askHandler, MAX_REQUEST_BYTES, DEFAULT_MODEL, MODEL_IDS } = require('../dist/ask.cjs');
+const { createConnectionStore } = require('./connection-store.cjs');
 
 app.setName('Paper Reader for Everyone');
+// Chromium does not automatically select a secret store on LXQt/LXDE.
+if (process.platform === 'linux' && /(?:^|:)(?:LXQt|LXDE)(?::|$)/i.test(process.env.XDG_CURRENT_DESKTOP || '') && !app.commandLine.hasSwitch('password-store')) {
+  app.commandLine.appendSwitch('password-store', 'gnome-libsecret');
+}
 // A fixed app-data location keeps the library stable across upgrades.
 if (process.env.PAPER_READER_TEST_DATA) app.setPath('userData', process.env.PAPER_READER_TEST_DATA);
 else app.setPath('userData', path.join(app.getPath('appData'), 'paper-reader-for-everyone'));
+const connection = createConnectionStore({ directory: app.getPath('userData'), safeStorage, models: MODEL_IDS, defaultModel: DEFAULT_MODEL });
 const entry = 'paper://reader/index.html';
 protocol.registerSchemesAsPrivileged([{ scheme: 'paper', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
 const active = new Map();
@@ -18,7 +24,8 @@ const assertTrusted = event => { if (!trusted(event)) throw new Error('Untrusted
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); } });
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    await connection.load();
     const publicRoot = path.resolve(__dirname, '../dist');
     protocol.handle('paper', request => {
       try {
@@ -64,14 +71,28 @@ ipcMain.handle('reader:save', async (event, value) => {
 });
 ipcMain.handle('reader:ask', async (event, value) => {
   assertTrusted(event);
-  if (!value || typeof value.id !== 'string' || value.id.length > 100 || typeof value.apiKey !== 'string' || value.apiKey.length > 512) return { error: 'Invalid question or API key.' };
+  if (!value || typeof value.id !== 'string' || value.id.length > 100) return { error: 'Invalid question.' };
+  const apiKey = connection.getKey();
+  if (!apiKey) return { error: 'Add your OpenAI API key in Connection first.' };
+  if ((typeof value.pdf?.data === 'string' && value.pdf.data.length > MAX_REQUEST_BYTES) || (typeof value.image === 'string' && value.image.length > 5_000_000) || (typeof value.text === 'string' && value.text.length > 30000)) return { error: 'The PDF or selection is too large.' };
   if (active.size) return { error: 'Wait for your current answer or cancel it first.' };
   const controller = new AbortController(); active.set(value.id, controller);
   try {
-    const { apiKey, id, ...body } = value;
+    const { id, ...body } = value;
     const request = new Request('https://paper-reader.local/ask', { method: 'POST', headers: { 'content-type': 'application/json', 'x-openai-key': apiKey }, body: JSON.stringify(body), signal: controller.signal });
     const response = await askHandler(request); return await response.json();
   } catch { return { error: 'The question could not be sent. Please try again.' }; }
   finally { active.delete(value.id); }
 });
 ipcMain.on('reader:cancel', (event, id) => { if (trusted(event) && typeof id === 'string') active.get(id)?.abort(); });
+ipcMain.handle('reader:connection', event => { assertTrusted(event); return connection.state(); });
+ipcMain.handle('reader:connection-save', async (event, value) => {
+  assertTrusted(event);
+  try { return await connection.save(value); }
+  catch (e) { return { ...connection.state(), error: e.code ? 'Could not save the connection on this device.' : e.message }; }
+});
+ipcMain.handle('reader:connection-clear', async event => {
+  assertTrusted(event);
+  try { return await connection.clear(); }
+  catch { return { ...connection.state(), error: 'Could not remove the saved key. Please try again.' }; }
+});

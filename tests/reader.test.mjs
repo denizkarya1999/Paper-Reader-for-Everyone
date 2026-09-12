@@ -92,3 +92,90 @@ test('upstream failures return useful errors without disclosing credentials', as
   assert.equal(result.status, 429); const value = await result.text();
   assert.match(value, /billing/); assert.doesNotMatch(value, /secret debug|sk-test/);
 });
+
+test('all current model options support selection requests with compatible reasoning settings', async () => {
+  for (const model of ['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-4.1-mini', 'gpt-4.1']) {
+    const result = await askHandler(request({ ...body, model }), async (_url, options) => {
+      const sent = JSON.parse(options.body);
+      assert.equal(sent.model, model);
+      assert.equal(sent.store, false);
+      if (model.startsWith('gpt-4.1')) assert.equal(sent.reasoning, undefined);
+      else { assert.deepEqual(sent.reasoning, { effort: 'low' }); assert.ok(sent.max_output_tokens >= 8192); }
+      for (const key of ['temperature', 'top_p', 'top_logprobs']) assert.equal(sent[key], undefined);
+      return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'Answer' }] }] });
+    });
+    assert.equal(result.status, 200);
+  }
+});
+test('whole-paper questions send every PDF page, preserving images, without a persistent file upload', async () => {
+  const bytes = await examplePdf();
+  const pdf = { filename: 'complete-paper.pdf', data: 'data:application/pdf;base64,' + Buffer.from(bytes).toString('base64') };
+  let calls = 0;
+  const result = await askHandler(request({ scope: 'paper', question: 'Summarize the whole paper', model: 'gpt-6-astra', pdf }), async (url, options) => {
+    calls++; assert.equal(url, 'https://api.openai.com/v1/responses');
+    const sent = JSON.parse(options.body); assert.equal(sent.store, false);
+    assert.equal(sent.input[0].content[0].type, 'input_file');
+    assert.equal(sent.input[0].content[0].filename, pdf.filename);
+    const decoded = Buffer.from(sent.input[0].content[0].file_data.split(',')[1], 'base64');
+    assert.deepEqual(new Uint8Array(decoded), bytes);
+    assert.equal((await PDFDocument.load(decoded)).getPageCount(), 2);
+    assert.match(sent.instructions, /Read all pages/); assert.match(sent.instructions, /untrusted/);
+    assert.doesNotMatch(sent.instructions, /Do not claim to have read the full document/);
+    assert.equal(sent.max_output_tokens, 16384);
+    return Response.json({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: 'Summary with PDF page 2 reference.' }] }] });
+  });
+  assert.equal(calls, 1); assert.match((await result.json()).answer, /page 2/);
+});
+test('whole-paper notes survive export, edits, and deletion without adding a false highlight', async () => {
+  const summary = { ...note, selection: { page: 1, kind: 'paper', text: '', rects: [{ x: .87, y: .05, width: .03, height: .03 }] }, answer: 'Whole-paper summary — 方法と結果。', question: 'Summarize the paper.' };
+  const source = await paper([summary]);
+  const saved = await exportPdf(source);
+  assert.deepEqual(await importNotes(saved), [summary]);
+  const doc = await PDFDocument.load(saved);
+  const annots = doc.getPage(0).node.Annots();
+  assert.equal(annots.size(), 2);
+  assert.equal(annots.lookup(0).get(PDFName.of('Subtype')).toString(), '/Text');
+  assert.equal(annots.lookup(0).get(PDFName.of('Subj')).decodeText(), 'Whole-paper note');
+  const revised = { ...summary, answer: 'Updated summary' };
+  const resaved = await exportPdf({ ...source, bytes: saved, notes: [revised] });
+  assert.deepEqual(await importNotes(resaved), [revised]);
+  assert.equal((await PDFDocument.load(resaved)).getPage(0).node.Annots().size(), 2);
+  const deleted = await exportPdf({ ...source, bytes: resaved, notes: [] });
+  assert.deepEqual(await importNotes(deleted), []);
+});
+test('invalid PDFs and attempts to attach PDFs to selection requests never reach OpenAI', async () => {
+  const fetcher = () => assert.fail('Must not contact OpenAI');
+  const pdf = { filename: 'paper.pdf', data: 'data:application/pdf;base64,' + Buffer.from('%PDF-1.7\n%%EOF').toString('base64') };
+  const whole = { scope: 'paper', question: 'Summarize', model: 'gpt-6-astra', pdf };
+  for (const invalid of [
+    { ...whole, pdf: undefined },
+    { ...whole, pdf: { ...pdf, data: 'https://example.com/private.pdf' } },
+    { ...whole, pdf: { ...pdf, data: 'data:application/pdf;base64,YWJj' } },
+    { ...whole, pdf: { ...pdf, filename: 'paper.txt' } },
+    { ...whole, pdf: { ...pdf, data: pdf.data + '===' } },
+    { ...body, pdf },
+    { ...body, scope: 'selection', pdf },
+    { ...whole, text: 'Hidden selection' },
+  ]) assert.equal((await askHandler(request(invalid), fetcher)).status, 400);
+});
+test('oversized PDF bodies are rejected before contacting OpenAI', async () => {
+  const large = new Request('https://paper-reader.local/ask', { method: 'POST', headers: { 'content-type': 'application/json', 'x-openai-key': 'sk-test-placeholder' }, body: 'x'.repeat(67_000_000) });
+  const result = await askHandler(large, () => assert.fail('Must not contact OpenAI'));
+  assert.equal(result.status, 413);
+});
+test('truncated, overlong, and context-limit responses remain explicit and notes stay exportable', async () => {
+  const incomplete = await askHandler(request(body), async () => Response.json({ status: 'incomplete', output: [{ type: 'reasoning' }] }));
+  assert.match((await incomplete.json()).error, /response limit/);
+  const long = await askHandler(request(body), async () => Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'a'.repeat(21000) }] }] }));
+  const value = await long.json(); assert.equal(value.incomplete, true); assert.equal(value.answer.length, 19900);
+  const context = await askHandler(request(body), async () => Response.json({ error: { code: 'context_length_exceeded', message: 'secret' } }, { status: 400 }));
+  assert.match((await context.json()).error, /reading limit/);
+});
+test('cancellation reaches the OpenAI request and is reported as cancelled', async () => {
+  const controller = new AbortController();
+  const input = new Request(request(body), { signal: controller.signal });
+  const result = await askHandler(input, async (_url, options) => {
+    controller.abort(); assert.equal(options.signal.aborted, true); throw new Error('aborted');
+  });
+  assert.match((await result.json()).error, /cancelled/);
+});
