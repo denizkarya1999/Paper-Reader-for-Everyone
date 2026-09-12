@@ -10,6 +10,7 @@ for (const folder of ['cmaps', 'standard_fonts', 'wasm']) await cp(`node_modules
 await mkdir('assets', { recursive: true });
 await copyFile('assets/icon.png', 'dist/icon.png');
 await copyFile('LICENSE', 'dist/LICENSE');
+for (const file of ['cat.html', 'cat.css', 'cat.js']) await copyFile('assets/' + file, 'dist/' + file);
 // Ship the license notices of every bundled runtime dependency.
 const seen = new Set();
 async function includeLicenses(name, from) {

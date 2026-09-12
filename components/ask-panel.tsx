@@ -2,7 +2,7 @@ import { ArrowUp, BookOpen, LoaderCircle, Plus, Scan, Sparkles, StickyNote, X } 
 import { MODELS, SUMMARY_QUESTION } from '@/lib/ai-config';
 import type { Selection } from '@/lib/reader-types';
 
-export type AnswerDraft = { answer: string; question: string; selection: Selection; model: string };
+export type AnswerDraft = { answer: string; question: string; selection: Selection; model: string; chatId?: string };
 type Props = {
   scope: 'selection' | 'paper'; selection: Selection | null; draft: AnswerDraft | null;
   busy: boolean; question: string; model: string; pageCount: number; filename: string;

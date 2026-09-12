@@ -1,7 +1,7 @@
 {
   "name": "paper-reader-for-everyone",
-  "version": "1.1.0",
-  "description": "A Linux PDF reader with GPT-6 Astra, whole-paper summaries, and sticky notes.",
+  "version": "1.2.0",
+  "description": "A Linux PDF reader with ChatGPT, saved chats, portable PDF bundles, sticky notes, and a walking focus cat.",
   "author": {
     "name": "Deniz K. Acikbas"
   },
@@ -21,7 +21,10 @@
     "openai",
     "sticky-notes",
     "electron",
-    "research"
+    "research",
+    "chat-history",
+    "focus",
+    "desktop-pet"
   ],
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -33,24 +36,26 @@
     "package:dir": "npm run build && electron-builder --linux dir --x64 --publish never"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
+    "lucide-react": "^1.31.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.4.624",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "lucide-react": "^1.31.0",
-    "pdfjs-dist": "^5.4.624",
-    "pdf-lib": "^1.17.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.0",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
-    "typescript": "5.9.3",
-    "vite": "8.0.13",
     "electron": "^41.0.0",
     "electron-builder": "^26.0.12",
     "esbuild": "^0.28.0",
-    "@playwright/test": "^1.58.0"
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "5.9.3",
+    "vite": "8.0.13"
   },
   "build": {
     "appId": "io.github.denizkarya1999.paperreader",

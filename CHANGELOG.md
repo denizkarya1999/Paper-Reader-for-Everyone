@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2 — 2026-09-12
+
+- Save chat history with each PDF, including questions, answers, crops, models, and cancelled or interrupted requests.
+- Review, reopen, pin, or delete individual chats; clear one PDF’s chats or all chat history on this device.
+- Export and reopen a portable ZIP with an annotated PDF, readable HTML transcript, and JSON chat data.
+- Preserve existing PDFs, notes, and protected API keys on upgrade.
+- Add an optional walking desktop cat with a name, three coats, custom reminder minutes, Never, and disable controls.
+- Add offline focus check-ins and opt-in ChatGPT quizzes from the open PDF, with revealable answers and saved quiz history.
+- Pause reminders during sleep, cancel stale quiz requests, and prevent late answers from restoring deleted history.
+
 ## 1.1 — 2026-09-12
 
 - Add GPT-6 Astra and GPT-5.6 Sol, Terra, and Luna; use Luna as the everyday default.

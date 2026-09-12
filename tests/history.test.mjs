@@ -1,0 +1,112 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import 'fake-indexeddb/auto';
+import { build } from 'esbuild';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { zipSync, unzipSync, strFromU8, strToU8 } from 'fflate';
+import { PDFDocument } from 'pdf-lib';
+
+const directory = await mkdtemp(path.join(tmpdir(), 'reader-history-'));
+await build({ entryPoints: ['lib/storage.ts', 'lib/paper-bundle.ts', 'lib/pdf-export.ts', 'lib/focus-types.ts'], bundle: true, platform: 'node', format: 'esm', outdir: directory });
+const storage = await import(pathToFileURL(path.join(directory, 'storage.js')));
+const { exportBundle, importBundle } = await import(pathToFileURL(path.join(directory, 'paper-bundle.js')));
+const { examplePdf } = await import(pathToFileURL(path.join(directory, 'pdf-export.js')));
+const { parseQuiz, quizPrompt } = await import(pathToFileURL(path.join(directory, 'focus-types.js')));
+test.after(() => rm(directory, { recursive: true, force: true }));
+const selection = { kind: 'text', page: 1, text: 'A useful passage <script>alert(1)</script>', rects: [{ x: .1, y: .2, width: .5, height: .05 }] };
+const note = { id: 'note', selection, question: 'A note', answer: 'My saved note — 日本語', color: 'yellow', createdAt: '2026-09-12T12:00:00.000Z' };
+const paper = { id: 'original', name: 'Research 日本語.pdf', bytes: await examplePdf(), notes: [note], page: 1, updatedAt: note.createdAt };
+const chat = (id, paperId = paper.id) => ({ id, paperId, question: 'What does this mean? ' + id, answer: '', selection, model: 'gpt-6-astra', createdAt: note.createdAt, status: 'pending' });
+
+test('upgrade preserves the legacy library; chat completion and deletion persist independently of PDF saves', async () => {
+  await new Promise((resolve, reject) => {
+    const open = indexedDB.open('paper-reader-everyone', 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('papers', { keyPath: 'id' });
+    open.onerror = reject;
+    open.onsuccess = () => { const db = open.result; const tx = db.transaction('papers', 'readwrite'); tx.objectStore('papers').put(paper); tx.oncomplete = () => { db.close(); resolve(); }; };
+  });
+  assert.deepEqual(await storage.listPapers(), [paper]);
+  await storage.addChat(chat('a'));
+  assert.equal(await storage.finishChat(paper.id, 'a', { status: 'completed', answer: 'Saved answer' }), true);
+  assert.equal((await storage.listChats(paper.id))[0].answer, 'Saved answer');
+  await storage.removeChat(paper.id, 'a');
+  await storage.savePaper({ ...paper, page: 2 });
+  assert.deepEqual(await storage.listChats(paper.id), []);
+  assert.deepEqual((await storage.listPapers())[0].notes, [note]);
+});
+test('cancelled and deleted requests cannot be resurrected by late answers', async () => {
+  await storage.addChat(chat('cancelled'));
+  await storage.finishChat(paper.id, 'cancelled', { status: 'cancelled' });
+  assert.equal(await storage.finishChat(paper.id, 'cancelled', { status: 'completed', answer: 'Late' }), false);
+  assert.equal((await storage.listChats(paper.id))[0].status, 'cancelled');
+  await storage.addChat(chat('deleted'));
+  const deleting = storage.removeChat(paper.id, 'deleted');
+  const finishing = storage.finishChat(paper.id, 'deleted', { status: 'completed', answer: 'Late' });
+  await deleting; assert.equal(await finishing, false);
+  assert.ok(!(await storage.listChats(paper.id)).some(item => item.id === 'deleted'));
+});
+test('clear current/all chats retains PDFs and notes; removing a PDF removes its chats', async () => {
+  await storage.savePaper({ ...paper, id: 'second' });
+  await storage.addChat(chat('same-id')); await storage.addChat(chat('same-id', 'second'));
+  assert.equal((await storage.chatCounts()).second, 1);
+  await storage.clearChats(paper.id);
+  assert.equal((await storage.listChats('second')).length, 1);
+  assert.equal((await storage.listChats(paper.id)).length, 0);
+  await storage.clearChats();
+  assert.deepEqual(Object.keys(await storage.chatCounts()), []);
+  assert.equal((await storage.listPapers()).length, 2);
+  assert.deepEqual((await storage.listPapers())[0].notes, [note]);
+  await storage.addChat(chat('child', 'second')); await storage.removePaper('second');
+  assert.equal((await storage.listChats('second')).length, 0);
+  await assert.rejects(storage.addChat(chat('orphan', 'missing')));
+});
+test('interrupted requests recover; imported chats merge without duplicates or replacing existing answers', async () => {
+  await storage.addChat(chat('interrupted')); await storage.recoverInterruptedChats();
+  assert.equal((await storage.listChats(paper.id))[0].status, 'interrupted');
+  await storage.restoreBundle(paper, [{ ...chat('restored'), answer: 'Original answer', status: 'completed' }]);
+  await storage.restoreBundle(paper, [{ ...chat('restored'), answer: 'Duplicate answer', status: 'completed' }]);
+  assert.equal((await storage.listChats(paper.id)).filter(item => item.id === 'restored').length, 1);
+  assert.equal((await storage.listChats(paper.id)).find(item => item.id === 'restored').answer, 'Original answer');
+});
+test('portable bundle carries annotated PDF, readable escaped transcript and restorable Unicode chats without credentials', async () => {
+  const entries = [{ ...chat('fixture'), answer: 'Unicode answer: ilişki 日本語 <img src=x onerror=alert(1)>', status: 'completed', apiKey: 'sk-secret-must-never-export' }, { ...chat('crop'), selection: { ...selection, kind: 'area', image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF9sAAAAASUVORK5CYII=' } }, { ...chat('other', 'unrelated'), answer: 'Other private PDF' }];
+  const bytes = await exportBundle(paper, entries);
+  const files = unzipSync(bytes);
+  assert.deepEqual(Object.keys(files).sort(), ['README.txt', 'chat-history.html', 'chat-history.json', 'paper.pdf']);
+  const json = strFromU8(files['chat-history.json']); const html = strFromU8(files['chat-history.html']);
+  assert.doesNotMatch(json + html, /sk-secret|apiKey|paperId|Other private PDF/);
+  assert.doesNotMatch(html, /<script>|<img src=x/); assert.match(html, /&lt;script&gt;/);
+  const imported = await importBundle(bytes);
+  assert.equal((await PDFDocument.load(imported.paper.bytes)).getPageCount(), 2);
+  assert.deepEqual(imported.paper.notes, [note]);
+  assert.equal(imported.chats.length, 2); assert.equal(imported.chats[0].answer, entries[0].answer);
+  assert.equal(imported.chats[1].status, 'interrupted');
+  assert.equal(imported.chats[1].selection.image, entries[1].selection.image);
+  assert.ok(imported.chats.every(item => item.paperId === imported.paper.id));
+  if (process.env.PAPER_READER_WRITE_FIXTURE) await writeFile(process.env.PAPER_READER_WRITE_FIXTURE, bytes);
+});
+test('damaged, incompatible and oversized archive entries are rejected before importing', async () => {
+  const files = unzipSync(await exportBundle(paper, [{ ...chat('a'), status: 'completed', answer: 'A' }]));
+  const original = JSON.parse(strFromU8(files['chat-history.json']));
+  const changed = history => zipSync({ ...files, 'chat-history.json': strToU8(JSON.stringify(history)) });
+  await assert.rejects(importBundle(new Uint8Array([0, 1, 2])), /valid/);
+  await assert.rejects(importBundle(zipSync({ 'paper.pdf': files['paper.pdf'] })), /needs/);
+  await assert.rejects(importBundle(zipSync({ ...files, 'chat-history.json': strToU8('{bad') })), /damaged/);
+  await assert.rejects(importBundle(changed({ ...original, version: 999 })), /unsupported/);
+  await assert.rejects(importBundle(changed({ ...original, chats: [original.chats[0], original.chats[0]] })), /damaged/);
+  await assert.rejects(importBundle(changed({ ...original, chats: [{ ...original.chats[0], selection: { ...selection, page: 99 } }] })), /missing/);
+  await assert.rejects(importBundle(changed({ ...original, chats: [{ ...original.chats[0], selection: { ...selection, image: 'https://example.com/track' } }] })), /damaged/);
+  const huge = zipSync({ 'paper.pdf': files['paper.pdf'], 'chat-history.json': strToU8('{}') });
+  const view = new DataView(huge.buffer, huge.byteOffset, huge.byteLength);
+  for (let i = 0; i < huge.length - 28; i++) if (view.getUint32(i, true) === 0x02014b50) view.setUint32(i + 24, 0x7fffffff, true);
+  await assert.rejects(importBundle(huge), /size limit/);
+});
+test('quiz prompts remain bounded and quiz responses must contain a question and a model answer', () => {
+  const prompt = quizPrompt(3, Array(100).fill('x'.repeat(5000)));
+  assert.ok(prompt.length < 4000); assert.match(prompt, /PDF page 3/); assert.match(prompt, /paper actually explains/);
+  assert.deepEqual(parseQuiz('```json\n{"question":"What does X do?","answer":"It senses Y (PDF page 3)."}\n```'), { question: 'What does X do?', answer: 'It senses Y (PDF page 3).' });
+  for (const invalid of ['not json', '{"error":"unreadable"}', '{"question":"Q"}', JSON.stringify({ question: 'Q', answer: 'a'.repeat(1501) })]) assert.throws(() => parseQuiz(invalid), /quiz/);
+});

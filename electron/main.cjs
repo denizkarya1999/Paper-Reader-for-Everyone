@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, session, Menu, protocol, net, safeStorage } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, session, Menu, protocol, net, safeStorage, screen, powerMonitor } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { pathToFileURL } = require('node:url');
@@ -18,6 +18,7 @@ const entry = 'paper://reader/index.html';
 protocol.registerSchemesAsPrivileged([{ scheme: 'paper', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
 const active = new Map();
 let mainWindow;
+let focusCat;
 const trusted = event => event.sender === mainWindow?.webContents && event.senderFrame === mainWindow.webContents.mainFrame && event.senderFrame.url === entry;
 const assertTrusted = event => { if (!trusted(event)) throw new Error('Untrusted app request.'); };
 
@@ -42,7 +43,9 @@ else {
     mainWindow.webContents.setWindowOpenHandler(({ url }) => { if (url === 'https://platform.openai.com/api-keys') void shell.openExternal(url); return { action: 'deny' }; });
     mainWindow.webContents.on('will-navigate', event => event.preventDefault());
     mainWindow.on('ready-to-show', () => mainWindow.show());
-    mainWindow.on('closed', () => { for (const controller of active.values()) controller.abort(); active.clear(); mainWindow = null; });
+    mainWindow.on('closed', () => { focusCat?.stop(); for (const controller of active.values()) controller.abort(); active.clear(); mainWindow = null; });
+    focusCat = require('./focus-cat.cjs').createFocusCat({ app, BrowserWindow, ipcMain, screen, powerMonitor, trusted, getMainWindow: () => mainWindow, cancelRequest: id => active.get(id)?.abort() });
+    mainWindow.webContents.once('did-finish-load', () => { void focusCat.start(); });
     void mainWindow.loadURL(entry);
   });
 }
@@ -50,10 +53,11 @@ app.on('window-all-closed', () => app.quit());
 
 ipcMain.handle('reader:open', async event => {
   assertTrusted(event);
-  const result = await dialog.showOpenDialog(mainWindow, { title: 'Open a PDF', properties: ['openFile'], filters: [{ name: 'PDF documents', extensions: ['pdf'] }] });
+  const result = await dialog.showOpenDialog(mainWindow, { title: 'Open a PDF or saved bundle', properties: ['openFile'], filters: [{ name: 'PDF documents and saved bundles', extensions: ['pdf', 'zip'] }] });
   if (result.canceled || !result.filePaths[0]) return null;
   const filename = result.filePaths[0]; const stat = await fs.stat(filename);
-  if (!stat.isFile() || stat.size > 50 * 1024 * 1024) throw new Error('Choose a PDF smaller than 50 MB.');
+  const limit = filename.toLowerCase().endsWith('.zip') ? 200_000_000 : 50 * 1024 * 1024;
+  if (!stat.isFile() || stat.size > limit) throw new Error('Choose a PDF below 50 MB or a saved ZIP bundle below 200 MB.');
   const bytes = await fs.readFile(filename);
   return { name: path.basename(filename), bytes: new Uint8Array(bytes) };
 });
@@ -95,4 +99,15 @@ ipcMain.handle('reader:connection-clear', async event => {
   assertTrusted(event);
   try { return await connection.clear(); }
   catch { return { ...connection.state(), error: 'Could not remove the saved key. Please try again.' }; }
+});
+ipcMain.handle('reader:save-bundle', async (event, value) => {
+  assertTrusted(event);
+  if (!value || typeof value.name !== 'string' || !(value.bytes instanceof Uint8Array) || value.bytes.length > 200_000_000 || value.bytes[0] !== 80 || value.bytes[1] !== 75 || value.bytes[2] !== 3 || value.bytes[3] !== 4) throw new Error('Invalid PDF and chat bundle.');
+  const result = await dialog.showSaveDialog(mainWindow, { title: 'Save PDF + chats', defaultPath: path.basename(value.name).slice(0, 220), filters: [{ name: 'PDF and chat history ZIP', extensions: ['zip'] }] });
+  if (result.canceled || !result.filePath) return false;
+  const filename = result.filePath.toLowerCase().endsWith('.zip') ? result.filePath : result.filePath + '.zip';
+  const temporary = filename + '.' + require('node:crypto').randomUUID() + '.tmp';
+  try { await fs.writeFile(temporary, value.bytes, { flag: 'wx', mode: 0o600 }); await fs.rename(temporary, filename); }
+  finally { await fs.unlink(temporary).catch(() => {}); }
+  return true;
 });

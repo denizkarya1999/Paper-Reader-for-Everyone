@@ -22,3 +22,14 @@
 .connection-modal .connection-error{padding:10px 12px;background:#fff0ed;border-radius:6px;color:#a24a3b;font-size:12px}
 .connection-footer{display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid #edf0f5}
 .connection-footer .text-button{font-size:10px}.connection-footer .remove-key{color:#a75c59}
+
+.panel-tabs{gap:16px;padding-left:18px;padding-right:18px}.panel-tabs>button{font-size:11px;gap:5px;white-space:nowrap}.panel-tabs .count{font-size:9px;padding:1px 5px}
+.chat-history{padding:18px;overflow:auto;flex:1;min-height:0;scrollbar-width:thin}.history-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.history-heading p{font-size:12px;font-weight:600;color:#526680}.history-heading button{font-size:10px;color:#a86160}
+.history-caption{font-size:10px;line-height:1.7;color:#8290a4;margin:10px 0 20px}.chat-entry{border:1px solid #e1e7f0;border-radius:9px;padding:14px;margin-bottom:13px;background:white}
+.chat-meta{display:flex;align-items:center;gap:8px;font-size:9px;color:#8390a4;margin-bottom:10px;flex-wrap:wrap}.chat-meta span{color:#5475b3}.chat-meta time{flex:1}.chat-meta button{padding:0;color:#a26765}
+.chat-entry summary{font-size:12px;font-weight:600;line-height:1.7;color:#425774;cursor:pointer;overflow-wrap:anywhere}.chat-model{font-size:9px;color:#8c99ab;margin:10px 0}.chat-entry blockquote{font-size:11px;color:#7b89a0;line-height:1.7;border-left:2px solid #dbe5f6;margin:10px 0;padding-left:10px;max-height:180px;overflow:auto}.chat-entry img{max-width:100%;border:1px solid #e5eaf3;border-radius:4px}.chat-entry .answer-text{font-size:12px;margin:14px 0;line-height:1.8}.chat-status{font-size:11px;line-height:1.7;color:#977555;margin:12px 0}
+.chat-actions{display:flex;flex-wrap:wrap;gap:14px}.chat-actions button{font-size:10px;gap:4px}.clear-all-history{font-size:11px;color:#aa605b;margin:0 0 18px}
+.document-name{min-width:0}.document-actions{gap:6px}
+@media(max-width:1000px){.panel-tabs{gap:10px;padding:0 12px}.panel-tabs>button{font-size:10px}.panel-tabs>button>svg{width:13px}.panel-tabs .count{padding:1px 3px}.document-actions .button span{display:none}}
+
+.focus-modal{max-height:90vh;overflow:auto}.focus-modal fieldset{padding:0;border:0;min-width:0}.focus-modal form>fieldset>label:not(.remember-key){display:block;margin:16px 0 6px;font-size:13px;font-weight:600}.focus-modal input:not([type=checkbox]),.focus-modal select{width:100%;border:1px solid #d9dfeb;border-radius:8px;padding:10px 12px;background:white;color:inherit;font:inherit}.focus-modal small{display:block;color:#778197;line-height:1.6;margin:10px 0;font-size:12px}.cat-icon{background:#fff0dc;color:#b67b43}
