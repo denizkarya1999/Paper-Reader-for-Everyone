@@ -2,11 +2,12 @@ import { APP_INFO } from './app-info';
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFString, StandardFonts, rgb, type PDFPage } from 'pdf-lib';
 import { z } from 'zod';
 import type { Note, Paper } from './reader-types';
+import { MAX_CROPS, selectionRegions } from './crops';
 
 const META = PDFName.of('PaperReaderNotesV1');
 const COLORS = { yellow: [1, .84, .22], blue: [.4, .7, 1], pink: [1, .55, .7] };
 const rectSchema = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), width: z.number().positive().max(1), height: z.number().positive().max(1) });
-const noteSchema = z.object({ id: z.string().min(1).max(100), question: z.string().max(4000), answer: z.string().max(20000), color: z.enum(['yellow', 'blue', 'pink']), createdAt: z.string().datetime(), selection: z.object({ page: z.number().int().positive(), kind: z.enum(['text', 'area', 'paper']), text: z.string().max(30000), rects: z.array(rectSchema).min(1).max(500) }) });
+const noteSchema = z.object({ id: z.string().min(1).max(100), question: z.string().max(4000), answer: z.string().max(20000), color: z.enum(['yellow', 'blue', 'pink']), createdAt: z.string().datetime(), selection: z.object({ page: z.number().int().positive(), kind: z.enum(['text', 'area', 'paper']), text: z.string().max(30000), rects: z.array(rectSchema).min(1).max(500), crops: z.array(z.object({ page: z.number().int().positive(), rect: rectSchema })).min(1).max(MAX_CROPS).optional() }) });
 
 // Stored rectangles use the displayed, rotated crop box. Convert each point back
 // to PDF user space so annotations stay aligned on rotated and cropped pages.
@@ -25,7 +26,7 @@ export async function importNotes(bytes: Uint8Array): Promise<Note[]> {
   try {
     const text = raw.decodeText(); if (text.length > 10_000_000) return [];
     const value = z.array(noteSchema).max(5000).safeParse(JSON.parse(text));
-    return value.success ? value.data.filter(note => note.selection.page <= doc.getPageCount()) : [];
+    return value.success ? value.data.filter(note => note.selection.page <= doc.getPageCount() && selectionRegions(note.selection).every(region => region.page <= doc.getPageCount())) : [];
   } catch { return []; }
 }
 export async function exportPdf(paper: Paper): Promise<Uint8Array> {
@@ -40,21 +41,21 @@ export async function exportPdf(paper: Paper): Promise<Uint8Array> {
   }
   const validated = z.array(noteSchema).max(5000).parse(paper.notes);
   doc.catalog.set(META, PDFHexString.fromText(JSON.stringify(validated)));
-  for (const note of validated) {
-    const page = doc.getPage(note.selection.page - 1); const color = COLORS[note.color];
+  for (const note of validated) for (const region of selectionRegions(note.selection)) {
+    const page = doc.getPage(region.page - 1); const color = COLORS[note.color];
     let annots = page.node.Annots(); if (!annots) { annots = context.obj([]) as PDFArray; page.node.set(PDFName.of('Annots'), annots); }
-    (note.selection.kind === 'paper' ? [] : note.selection.rects).forEach((rect, index) => {
+    (note.selection.kind === 'paper' ? [] : region.rects).forEach((rect, index) => {
       const tl = pdfPoint(page, rect.x, rect.y), tr = pdfPoint(page, Math.min(1, rect.x + rect.width), rect.y);
       const bl = pdfPoint(page, rect.x, Math.min(1, rect.y + rect.height)), br = pdfPoint(page, Math.min(1, rect.x + rect.width), Math.min(1, rect.y + rect.height));
       const points = [tl, tr, bl, br]; const bounds = [Math.min(...points.map(p => p[0])), Math.min(...points.map(p => p[1])), Math.max(...points.map(p => p[0])), Math.max(...points.map(p => p[1]))];
-      const annotation = context.obj({ Type: 'Annot', Subtype: note.selection.kind === 'text' ? 'Highlight' : 'Square', Rect: bounds, ...(note.selection.kind === 'text' ? { QuadPoints: points.flat(), CA: .35 } : { BS: { W: 1.5, S: 'D', D: [4, 3] } }), C: color, F: 4, NM: PDFString.of(`paper-reader:${note.id}:mark:${index}`) });
+      const annotation = context.obj({ Type: 'Annot', Subtype: note.selection.kind === 'text' ? 'Highlight' : 'Square', Rect: bounds, ...(note.selection.kind === 'text' ? { QuadPoints: points.flat(), CA: .35 } : { BS: { W: 1.5, S: 'D', D: [4, 3] } }), C: color, F: 4, NM: PDFString.of(`paper-reader:${note.id}:page:${region.page}:mark:${index}`) });
       annots!.push(context.register(annotation));
     });
-    const rect = note.selection.rects[0]; const [x, y] = pdfPoint(page, Math.min(.94, rect.x + rect.width), rect.y);
+    const rect = region.rects[0]; const [x, y] = pdfPoint(page, Math.min(.94, rect.x + rect.width), rect.y);
     const body = note.question ? `Question: ${note.question}\n\n${note.answer}` : note.answer;
-    const sticky = context.obj({ Type: 'Annot', Subtype: 'Text', Rect: [x, y - 20, x + 20, y], Contents: PDFHexString.fromText(body), T: PDFHexString.fromText('Paper Reader for Everyone'), Subj: PDFHexString.fromText(note.selection.kind === 'paper' ? 'Whole-paper note' : `Page ${note.selection.page} note`), C: color, Name: 'Comment', Open: false, F: 4, NM: PDFString.of(`paper-reader:${note.id}:note`) });
+    const sticky = context.obj({ Type: 'Annot', Subtype: 'Text', Rect: [x, y - 20, x + 20, y], Contents: PDFHexString.fromText(body), T: PDFHexString.fromText('Paper Reader for Everyone'), Subj: PDFHexString.fromText(note.selection.kind === 'paper' ? 'Whole-paper note' : `Page ${region.page} note`), C: color, Name: 'Comment', Open: false, F: 4, NM: PDFString.of(`paper-reader:${note.id}:page:${region.page}:note`) });
     const stickyRef = context.register(sticky); annots.push(stickyRef);
-    const popup = context.obj({ Type: 'Annot', Subtype: 'Popup', Rect: [x, y - 180, x + 240, y], Parent: stickyRef, Open: false, NM: PDFString.of(`paper-reader:${note.id}:popup`) });
+    const popup = context.obj({ Type: 'Annot', Subtype: 'Popup', Rect: [x, y - 180, x + 240, y], Parent: stickyRef, Open: false, NM: PDFString.of(`paper-reader:${note.id}:page:${region.page}:popup`) });
     const popupRef = context.register(popup); sticky.set(PDFName.of('Popup'), popupRef); annots.push(popupRef);
   }
   doc.setProducer(APP_INFO.name + ' ' + APP_INFO.version);

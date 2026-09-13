@@ -3,6 +3,7 @@ import { LoaderCircle, StickyNote } from 'lucide-react';
 import type { PDFDocumentProxy, RenderTask, TextLayer } from 'pdfjs-dist';
 import type { Note, Rect, Selection } from '@/lib/reader-types';
 import 'pdfjs-dist/web/pdf_viewer.css';
+import { selectionCrops, selectionRegions } from '@/lib/crops';
 
 type Props = { bytes: Uint8Array; pageNumber: number; zoom: number; mode: 'text' | 'area'; notes: Note[]; selection: Selection | null; activeNote: string | null; onSelect: (s: Selection) => void; onNote: (id: string) => void; onCount: (n: number) => void; onError: (s: string) => void };
 const clamp = (n: number) => Math.max(0, Math.min(1, n));
@@ -40,7 +41,7 @@ export default function PdfPage({ bytes, pageNumber, zoom, mode, notes, selectio
   useEffect(() => {
     if (!doc || !canvas.current || !textContainer.current) return;
     let stopped = false; let renderTask: RenderTask | undefined; let layer: TextLayer | undefined;
-    setRendered(false); setCrop(null);
+    setRendered(false); setCrop(null); start.current = null;
     void (async () => {
       const pdfjs = await import('pdfjs-dist'); const pdfPage = await doc.getPage(pageNumber);
       if (stopped) return;
@@ -98,8 +99,17 @@ export default function PdfPage({ bytes, pageNumber, zoom, mode, notes, selectio
   }
   return <div ref={host} className="pdf-stage"><div ref={page} className={`pdf-page ${rendered ? '' : 'is-loading'}`} style={size} onPointerUp={() => { if (mode === 'text') requestAnimationFrame(captureText); }} onKeyUp={captureText}>
     <canvas ref={canvas} aria-label={`PDF page ${pageNumber}`}/><div ref={textContainer} className={`textLayer ${mode === 'area' ? 'inactive' : ''}`} tabIndex={0} aria-label="Selectable PDF text"/>
-    <div className="annotations-layer">{notes.filter(n => n.selection.page === pageNumber).map(note => <div key={note.id}>{(note.selection.kind === 'paper' ? [] : note.selection.rects).map((r, i) => <span key={i} style={position(r)} className={`highlight ${note.color} ${note.selection.kind === 'area' ? 'area-highlight' : ''} ${activeNote === note.id ? 'highlight-active' : ''}`}/>)}{note.selection.rects[0] && <button className={`note-pin ${note.color} ${activeNote === note.id ? 'active-pin' : ''}`} style={{ left: `${Math.min(.95, note.selection.rects[0].x + note.selection.rects[0].width) * 100}%`, top: `${note.selection.rects[0].y * 100}%` }} title={note.question || note.answer.slice(0, 100)} aria-label={`Open note on page ${pageNumber}: ${(note.question || note.answer).slice(0, 80)}`} onClick={() => onNote(note.id)}><StickyNote size={16}/></button>}</div>)}{selection?.page === pageNumber && selection.rects.map((r, i) => <span key={`selection-${i}`} className={`highlight current-selection ${selection.kind === 'area' ? 'area-highlight' : ''}`} style={position(r)}/>)}</div>
-    {mode === 'area' && <div className="crop-layer" role="img" aria-label="Drag to crop an area" onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={() => { start.current = null; setCrop(null); }}>{crop && <span className="crop-box" style={position(crop)}/>}</div>}
+    <div className="annotations-layer">
+      {notes.flatMap(note => selectionRegions(note.selection).filter(region => region.page === pageNumber).map(region => {
+        const first = region.rects[0];
+        return <div key={note.id}>
+          {(note.selection.kind === 'paper' ? [] : region.rects).map((r, i) => <span key={i} style={position(r)} className={`highlight ${note.color} ${note.selection.kind === 'area' ? 'area-highlight' : ''} ${activeNote === note.id ? 'highlight-active' : ''}`}/>)}
+          {first && <button className={`note-pin ${note.color} ${activeNote === note.id ? 'active-pin' : ''}`} style={{ left: `${Math.min(.95, first.x + first.width) * 100}%`, top: `${first.y * 100}%` }} title={note.question || note.answer.slice(0, 100)} aria-label={`Open note on page ${pageNumber}: ${(note.question || note.answer).slice(0, 80)}`} onClick={() => onNote(note.id)}><StickyNote size={16}/></button>}
+        </div>;
+      }))}
+      {selection?.kind === 'area' ? selectionCrops(selection).map((item, i) => item.page === pageNumber && <span key={`selection-${i}`} className="highlight current-selection area-highlight" style={position(item.rect)}><span className="crop-number">{i + 1}</span></span>) : selection?.page === pageNumber && selection.rects.map((r, i) => <span key={`selection-${i}`} className="highlight current-selection" style={position(r)}/>)}
+    </div>
+    {mode === 'area' && <div className="crop-layer" role="img" aria-label="Drag to crop an area" onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={() => { start.current = null; setCrop(null); }} onLostPointerCapture={() => { start.current = null; setCrop(null); }}>{crop && <span className="crop-box" style={position(crop)}/>}</div>}
     {!rendered && <div className="page-loading" role="status"><LoaderCircle className="spin" size={22}/>Opening page…</div>}
   </div></div>;
 }

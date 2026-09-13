@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { DEFAULT_MODEL, MAX_PAPER_BYTES, MODEL_IDS } from './ai-config';
 import { supportQuestionSchema, supportResponseInput } from './reading-support';
+import { MAX_CROPS, MAX_CROP_IMAGE_LENGTH, MAX_CROP_TOTAL_LENGTH } from './crops';
 export { DEFAULT_MODEL, MODEL_IDS } from './ai-config';
+export { MAX_CROPS, MAX_CROP_IMAGE_LENGTH, MAX_CROP_TOTAL_LENGTH } from './crops';
 
 const maxEncodedLength = Math.ceil(MAX_PAPER_BYTES / 3) * 4;
 const pdfDataSchema = z.string().max(maxEncodedLength + 28).refine(value => {
@@ -16,16 +18,21 @@ const common = {
   question: z.string().trim().min(1).max(4000), model: z.enum(MODEL_IDS).default(DEFAULT_MODEL),
   pdf: z.object({ filename: z.string().min(1).max(255).regex(/\.pdf$/i), data: pdfDataSchema }).strict(),
 };
+const imageSchema = z.string().max(MAX_CROP_IMAGE_LENGTH).regex(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/);
 const selectionSchema = z.object({
   ...common, scope: z.literal('selection').default('selection'),
   text: z.string().max(30000).default(''),
-  image: z.string().max(5_000_000).regex(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/).optional(),
+  image: imageSchema.optional(),
+  crops: z.array(z.object({ page: z.number().int().min(1).max(100000), image: imageSchema }).strict()).min(1).max(MAX_CROPS).optional(),
   page: z.number().int().min(1).max(100000),
-}).strict().refine(value => value.text.trim() || value.image, { message: 'Select text or crop an area first.' });
+}).strict()
+  .refine(value => value.text.trim() || value.image || value.crops?.length, { message: 'Select text or crop an area first.' })
+  .refine(value => !(value.image && value.crops), { message: 'Send a single image or a crop collection.' })
+  .refine(value => (value.crops ?? []).reduce((total, crop) => total + crop.image.length, 0) <= MAX_CROP_TOTAL_LENGTH, { message: 'The crops are too large together.' });
 const paperSchema = z.object({ ...common, scope: z.literal('paper') }).strict();
 export const questionSchema = z.union([selectionSchema, paperSchema, supportQuestionSchema]);
-// Allow the full PDF plus a crop, escaped selection/question text, and JSON metadata.
-export const MAX_REQUEST_BYTES = maxEncodedLength + 5_250_000;
+// Allow the full PDF, the bounded crop collection, escaped text, and metadata.
+export const MAX_REQUEST_BYTES = maxEncodedLength + MAX_CROP_TOTAL_LENGTH + 250_000;
 
 export function responseInput(value: z.infer<typeof questionSchema>) {
   if (value.scope === 'support') return supportResponseInput(value);
@@ -41,6 +48,10 @@ export function responseInput(value: z.infer<typeof questionSchema>) {
       { type: 'input_file', filename: value.pdf.filename, file_data: value.pdf.data },
       { type: 'input_text', text: wholePaper ? value.question : 'Question: ' + value.question + '\n\nSelected PDF page: ' + value.page + '\n<selection>\n' + value.text + '\n</selection>\nUse the attached whole paper to explain this selection in context.' },
       ...(!wholePaper && value.image ? [{ type: 'input_image', image_url: value.image, detail: 'high' }] : []),
+      ...(!wholePaper && value.crops ? value.crops.flatMap((crop, index) => [
+        { type: 'input_text', text: `Crop ${index + 1} of ${value.crops!.length} — PDF page ${crop.page}. Consider all selected crops together when answering the question.` },
+        { type: 'input_image', image_url: crop.image, detail: 'high' },
+      ]) : []),
     ] }],
   };
 }

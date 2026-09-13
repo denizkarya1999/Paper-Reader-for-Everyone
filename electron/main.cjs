@@ -2,7 +2,7 @@ const { app, BrowserWindow, dialog, ipcMain, shell, session, Menu, protocol, net
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { pathToFileURL } = require('node:url');
-const { askHandler, MAX_REQUEST_BYTES, DEFAULT_MODEL, MODEL_IDS } = require('../dist/ask.cjs');
+const { askHandler, MAX_REQUEST_BYTES, DEFAULT_MODEL, MODEL_IDS, MAX_CROPS, MAX_CROP_IMAGE_LENGTH, MAX_CROP_TOTAL_LENGTH } = require('../dist/ask.cjs');
 const { createConnectionStore } = require('./connection-store.cjs');
 
 app.setName('Paper Reader for Everyone');
@@ -79,6 +79,7 @@ ipcMain.handle('reader:ask', async (event, value) => {
   const apiKey = connection.getKey();
   if (!apiKey) return { error: 'Add your OpenAI API key in Connection first.' };
   if ((typeof value.pdf?.data === 'string' && value.pdf.data.length > MAX_REQUEST_BYTES) || (typeof value.image === 'string' && value.image.length > 5_000_000) || (typeof value.text === 'string' && value.text.length > 30000)) return { error: 'The PDF or selection is too large.' };
+  if (value.crops !== undefined && (!Array.isArray(value.crops) || value.crops.length > MAX_CROPS || value.crops.some(crop => !crop || typeof crop.image !== 'string' || crop.image.length > MAX_CROP_IMAGE_LENGTH) || value.crops.reduce((total, crop) => total + crop.image.length, 0) > MAX_CROP_TOTAL_LENGTH)) return { error: 'The crop collection is invalid or too large. Remove a crop or select smaller areas.' };
   if (active.size) return { error: 'Wait for your current answer or cancel it first.' };
   const controller = new AbortController(); active.set(value.id, controller);
   try {

@@ -1,6 +1,6 @@
 # Paper Reader for Everyone
 
-**Version 1.3.0 · Package revision 2 · Developed by Deniz K. Acikbas**
+**Version 1.4.0 · Package revision 1 · Developed by Deniz K. Acikbas**
 
 A simple, installable Linux PDF reader. Highlight a passage or crop a figure, ask ChatGPT a question, and pin the answer as a sticky note on the PDF.
 
@@ -14,12 +14,12 @@ A simple, installable Linux PDF reader. Highlight a passage or crop a figure, as
 
 ## Install on Linux
 
-Download `paper-reader-for-everyone_1.3.0-2_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
+Download `paper-reader-for-everyone_1.4.0-1_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
 
 Open it with your system's software installer, or run this command from your download folder:
 
 ```sh
-sudo apt install ./paper-reader-for-everyone_1.3.0-2_amd64.deb
+sudo apt install ./paper-reader-for-everyone_1.4.0-1_amd64.deb
 ```
 
 Launch **Paper Reader for Everyone** from your application menu.
@@ -29,7 +29,7 @@ The package targets **64-bit Intel/AMD Debian-based Linux**, including Ubuntu, D
 ## Use it
 
 1. Choose **Open PDF**, drag a PDF into the window, or try the included example.
-2. Ask about the whole paper immediately, or use **Highlight** / **Crop area** to focus on a passage, figure, equation, table, or scanned area with the rest of the PDF as context.
+2. Ask about the whole paper immediately, or use **Highlight** / **Crop areas** to focus on a passage, figure, equation, table, or scanned area with the rest of the PDF as context.
 3. Enter your OpenAI API key in the first-run setup, or open **Settings → ChatGPT connection** later. Choose GPT-6 Astra, GPT-5.6 Sol, Terra, or Luna, or the previous GPT-4.1 models.
 4. Type a question and press the arrow button or **Ctrl+Enter**.
 5. Choose **Pin as sticky note**. In **Notes**, edit the answer, change its color, or return to its page.
@@ -69,6 +69,14 @@ Open or drop this ZIP in Paper Reader 1.2 or later to restore the PDF and chats 
 ### Ask with whole-paper context
 
 Opening a PDF makes the question box ready immediately. Ask any question in **Whole paper**, or choose **Summarize whole paper**. Highlight text or crop an area to focus a question: the full PDF is attached alongside the selection, so ChatGPT can use definitions, methods, results, figures, and limitations from elsewhere in the paper. Supporting PDF page references are requested. Use **Whole paper** or clear the selection to return to general questions; your draft question is preserved. Each question is independent of previous chat answers. If the PDF exceeds a model’s context limit, use a shorter PDF or another model.
+
+### Select multiple crops
+
+Choose **Crop areas** and drag a rectangle around each figure, equation, table, or passage you want to discuss. Each drag adds a numbered crop. You can change pages or zoom and keep collecting, up to **10 crops** per question. The question panel shows every crop with its source page; click the page label to revisit it, use its **×** to remove it, or **Clear selection** to start over. Highlighting text replaces the crop collection with that passage. Drawing a crop while in Whole paper starts a fresh collection.
+
+Type one question, such as “How do these figures relate?”, and choose **Ask ChatGPT** or press **Ctrl+Enter**. The app sends every selected image in order, labeled by PDF page, alongside one copy of the full PDF. Crops stay selected after sending so you can ask another question. Each question is independent and incurs normal API usage, including all attached crops and the full PDF. The app accepts up to 5 MB of encoded data per crop and 20 MB across the collection; a crop exceeding either limit is rejected without losing your existing selections.
+
+**Chats** retains every crop. **Pin as sticky note** links the answer to all selected pages, and **Save PDF** exports crop outlines and a note on each of those pages. PDF exports preserve crop locations without embedding duplicate crop images. **Save PDF + chats** also preserves all crop images in the readable transcript and structured history. Open multi-crop bundles in **version 1.4 or later**; older versions may show only the first crop. Existing single-crop chats and older bundles remain supported.
 
 ### Generate and study flashcards
 
@@ -139,6 +147,8 @@ Create the Debian installer:
 ```sh
 npm run package:deb
 ```
+
+Run the desktop multi-crop interaction test after building with `npm run test:ui`. On a headless Linux host, use `xvfb-run --auto-servernum npm run test:ui`. It uses an isolated test library and simulated API responses, without sending your files or using your API key.
 
 The installer is written to `release/`. `npm run package:dir` makes an unpacked desktop build. `npm run dev` previews the renderer for layout development only; native dialogs and ChatGPT run in the Electron app.
 

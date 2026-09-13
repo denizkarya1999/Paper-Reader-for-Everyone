@@ -20,6 +20,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run package:deb
+      - run: xvfb-run --auto-servernum npm run test:ui
       - uses: actions/upload-artifact@v4
         with:
           name: paper-reader-for-everyone-linux-amd64

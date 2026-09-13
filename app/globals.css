@@ -55,3 +55,15 @@
 @media(max-width:850px){.support-layout{grid-template-columns:1fr}.support-preferences fieldset{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px}.support-preferences legend,.support-needs{grid-column:1/-1}.support-preferences small{grid-column:1/-1}.support-preferences .support-field{margin:10px 0 0}.support-conversation{max-height:none;min-height:560px}.support-messages{max-height:500px}.support-starters{grid-template-columns:1fr}.brand-title{max-width:270px}.app-footer{gap:10px;padding:0 15px;font-size:10px}}
 /* Keep the controls and composer within reach on smaller laptop screens. */
 @media(min-width:851px) and (max-height:850px){.reading-support-page{padding:20px 35px}.reading-support-page .page-heading{margin-bottom:20px}.reading-support-page .page-heading .eyebrow{display:none}.reading-support-page .page-heading h1{font-size:29px}.reading-support-page .page-heading p{margin-top:7px;font-size:12px}.support-preferences{padding:18px}.support-preferences>.empty-icon{display:none}.support-preferences h2{font-size:18px;margin-bottom:8px}.support-preferences>p{font-size:11px;line-height:1.6;margin-bottom:10px}.support-preferences fieldset{margin:12px 0}.support-preferences legend{margin-bottom:8px}.support-needs label{padding:8px}.support-preferences .support-field{margin-top:12px;margin-bottom:6px;font-size:11px}.support-preferences small{font-size:10px;line-height:1.5;margin-top:6px}.support-preferences .settings-help{margin-top:10px;font-size:10px}.support-conversation{min-height:0;height:calc(100dvh - 217px);max-height:none}.support-conversation-heading{padding:16px 20px}.support-messages{padding:20px}.support-welcome>.empty-icon{display:none}.support-welcome h2{font-size:22px;margin-bottom:10px}.support-welcome>p{font-size:12px}.support-starters{margin-top:15px}.support-starters button{font-size:11px;padding:10px}.support-composer{padding:12px 18px}.support-composer textarea{min-height:64px}.support-composer .settings-help{margin-top:10px;font-size:9px}.support-send-row{margin-top:8px}}
+
+/* Multiple PDF crops */
+.crop-help{font-size:12px;line-height:1.6;color:var(--muted);margin:8px 0 12px}
+.crop-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.crop-list .crop-card{margin:0;padding:10px}
+.crop-card-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;color:var(--muted)}
+.crop-card-heading>button:last-child{padding:5px;border-radius:4px;display:flex}
+.crop-card img{display:block;max-height:180px;object-fit:contain;width:100%;background:white}
+.crop-number{position:absolute;left:-2px;top:-2px;min-width:20px;padding:2px 5px;background:#365eb7;color:white;font:600 11px/16px sans-serif;border-radius:3px}
+.saved-crop{margin:12px 0}.saved-crop figcaption{font-size:11px;color:var(--muted);margin-bottom:5px}
+
+.ask-content>.paper-disclosure{font-size:11px;line-height:1.8;color:var(--muted);margin:14px 0 20px}

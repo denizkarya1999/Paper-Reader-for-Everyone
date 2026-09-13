@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.0 — 2026-09-12
+
+- Collect up to 10 numbered crops from the same PDF across pages and zoom levels, with previews, page links, individual removal, and clear-all.
+- Send all selected crops together with one question and the complete PDF, labeling each crop with its source page.
+- Retain multiple crops in saved chats and portable PDF/chat bundles, including every image in HTML transcripts.
+- Pin one answer to every selected page and preserve crop outlines and notes through PDF export and reopening.
+- Keep older single-crop chats, notes, and bundles compatible; enforce crop count, individual size, and combined-size limits.
+- Add request, export, bundle, and desktop interaction regression tests for multiple crops.
+
+
 ## 1.3.0 revision 2 — 2026-09-12
 
 - Show the full Paper Reader for Everyone name in the header and the exact name plus Version 1.3.0 in the footer.
