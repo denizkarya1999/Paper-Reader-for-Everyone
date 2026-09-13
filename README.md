@@ -1,19 +1,25 @@
 # Paper Reader for Everyone
 
-**Version 1.3 · Developed by Deniz K. Acikbas**
+**Version 1.3.0 · Package revision 2 · Developed by Deniz K. Acikbas**
 
 A simple, installable Linux PDF reader. Highlight a passage or crop a figure, ask ChatGPT a question, and pin the answer as a sticky note on the PDF.
 
 <img src="assets/icon.png" alt="Paper Reader for Everyone icon" width="80" />
 
+## Screenshots
+
+[View all 10 app screenshots](docs/screenshots/README.md), including the reader, sticky notes, flashcards, settings, and focusing tips in both themes.
+
+![Focusing Tips for Readers in light mode](docs/screenshots/09-focusing-tips-light.png)
+
 ## Install on Linux
 
-Download `paper-reader-for-everyone_1.3.0_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
+Download `paper-reader-for-everyone_1.3.0-2_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
 
 Open it with your system's software installer, or run this command from your download folder:
 
 ```sh
-sudo apt install ./paper-reader-for-everyone_1.3.0_amd64.deb
+sudo apt install ./paper-reader-for-everyone_1.3.0-2_amd64.deb
 ```
 
 Launch **Paper Reader for Everyone** from your application menu.
@@ -72,6 +78,14 @@ Sets larger than 10 cards are generated in batches of at most 10. **Every batch 
 
 Each set is stored as an entry in the PDF’s chat history and appears under **Saved sets**. Delete a set from Flashcards or Chats; clearing chat history also clears its flashcard sets. Pinned notes are preserved. **Save PDF + chats** includes complete cards in both the readable HTML transcript and structured JSON. Open these bundles in **version 1.3 or later** to restore and study the flashcards. Older PDF/chat bundles still open normally.
 
+### Focusing Tips for Readers
+
+Choose **Focusing tips** in the header, even before opening a PDF. Optionally select **ADHD**, **AuDHD**, **Autism**, or **Anxiety** (multiple choices are supported), choose **Research paper** or **Book**, and set the time you have from 1 to 120 minutes. Select **Generate focusing tips**, use a starter question, or describe a focus or motivation difficulty in your own words. Follow-up questions can adapt earlier suggestions.
+
+This page uses your saved API key and selected model. It sends only the chosen support preferences, your question, and up to six recent completed question-and-answer exchanges to OpenAI. It does not attach the open PDF or its chat history. Normal API charges apply. Preferences are optional and are not treated as a diagnosis. Responses are practical educational reading support, not diagnosis, treatment, or medication advice.
+
+The focusing conversation and preferences are saved on this device, separately from PDF chats and exports. Delete individual exchanges or choose **Clear conversation** on this page. Clearing PDF history does not clear this separate conversation. Up to 100 exchanges can be kept; clear the conversation to begin again when it is full. Earlier long answers may be shortened in follow-up context. Cancelled, failed, and interrupted exchanges are shown but are not sent as conversation context. Loading this page does not make an API request.
+
 ### Your focus cat
 
 Choose **Focus cat** in the header, turn on **Show my cat**, give it a name, and choose ginger, gray, or cream. It walks along the bottom of your desktop, above ordinary windows, while Paper Reader remains open. Set a reminder interval from 1 to 10,080 minutes, or choose **Never** to keep the cat without timed reminders. Turn off **Show my cat** or click **Hide cat** in its speech bubble to disable it. Preferences survive restarting. Closing Paper Reader closes the cat; it does not launch itself at login. Desktop appearance and placement depend on the Linux window manager and compositor.
@@ -91,8 +105,8 @@ You can also use **Write a note** to add your own note without ChatGPT. Reading,
 ## Local files and privacy
 
 - PDFs, notes, and chat history are saved automatically in the app's local IndexedDB library, under your system's application-data directory (`~/.config/paper-reader-for-everyone` on most Linux systems).
-- The app has no sign-in, cloud library, or analytics. Document uploads occur when you ask ChatGPT a question, generate flashcards, or enable timed PDF quizzes.
-- Every question sends the complete PDF to OpenAI for context. **Selection** adds the highlighted passage or cropped image and its page number, focusing the answer on that area while connecting it to relevant material elsewhere. **Whole paper** asks about the document without a selection and is selected automatically when you open a PDF or clear a selection. The interface explains what is sent; full-PDF requests can take longer and cost more than excerpt-only questions.
+- The app has no sign-in, cloud library, or analytics. Document uploads occur when you ask ChatGPT a PDF question, generate flashcards, or enable timed PDF quizzes. Focusing Tips sends only the support preferences and conversation described above.
+- Every PDF question sends the complete PDF to OpenAI for context. **Selection** adds the highlighted passage or cropped image and its page number, focusing the answer on that area while connecting it to relevant material elsewhere. **Whole paper** asks about the document without a selection and is selected automatically when you open a PDF or clear a selection. The interface explains what is sent; full-PDF requests can take longer and cost more than excerpt-only questions.
 - First-run setup asks for your OpenAI API key. **Remember my key on this device** is enabled by default when secure storage is available. The key is encrypted using Electron safeStorage and the Linux system keyring, saved in an owner-only (0600) connection file, and loaded automatically on later launches. Your selected model is also remembered.
 - **Connection** lets you replace the key, change models, or **Remove key**. Leave the replacement field blank to keep the existing key. The decrypted saved key remains in the desktop main process; it is not returned to the PDF interface, saved in the PDF library, or exported with a PDF.
 - GNOME Keyring or KWallet must be available and unlocked to remember keys. LXQt/LXDE use the Secret Service backend explicitly. The app refuses Electron's unprotected Linux fallback; when secure storage is unavailable, setup offers session-only use and explains how to enable persistence. Choosing session-only use removes any previously saved key. A locked or damaged saved connection can be replaced or removed without affecting PDFs and notes.

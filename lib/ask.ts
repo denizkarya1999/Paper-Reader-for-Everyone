@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DEFAULT_MODEL, MAX_PAPER_BYTES, MODEL_IDS } from './ai-config';
+import { supportQuestionSchema, supportResponseInput } from './reading-support';
 export { DEFAULT_MODEL, MODEL_IDS } from './ai-config';
 
 const maxEncodedLength = Math.ceil(MAX_PAPER_BYTES / 3) * 4;
@@ -22,11 +23,12 @@ const selectionSchema = z.object({
   page: z.number().int().min(1).max(100000),
 }).strict().refine(value => value.text.trim() || value.image, { message: 'Select text or crop an area first.' });
 const paperSchema = z.object({ ...common, scope: z.literal('paper') }).strict();
-export const questionSchema = z.union([selectionSchema, paperSchema]);
+export const questionSchema = z.union([selectionSchema, paperSchema, supportQuestionSchema]);
 // Allow the full PDF plus a crop, escaped selection/question text, and JSON metadata.
 export const MAX_REQUEST_BYTES = maxEncodedLength + 5_250_000;
 
 export function responseInput(value: z.infer<typeof questionSchema>) {
+  if (value.scope === 'support') return supportResponseInput(value);
   const wholePaper = value.scope === 'paper';
   const reasoningModel = value.model.startsWith('gpt-6-') || value.model.startsWith('gpt-5.6-');
   return { model: value.model, store: false,
@@ -62,7 +64,7 @@ export async function askHandler(request: Request, fetcher: typeof fetch = fetch
     const bytes = new Uint8Array(length); let offset = 0;
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
     const parsed = questionSchema.safeParse(JSON.parse(new TextDecoder().decode(bytes)));
-    if (!parsed.success) return reply({ error: 'Choose a valid selection or a PDF smaller than 50 MB, select a supported model, and enter a question (up to 4,000 characters).' }, 400);
+    if (!parsed.success) return reply({ error: 'Check your question (up to 4,000 characters), model, and reading settings. PDF questions require a valid PDF smaller than 50 MB.' }, 400);
     value = parsed.data;
   } catch { return reply({ error: 'The question could not be read. Please try again.' }, 400); }
   try {
@@ -74,7 +76,7 @@ export async function askHandler(request: Request, fetcher: typeof fetch = fetch
       let code = '';
       try { code = (await upstream.json())?.error?.code || ''; } catch { /* Non-JSON errors use the generic message. */ }
       const messages: Record<number, string> = {
-        400: code === 'context_length_exceeded' ? 'This paper exceeds the model’s reading limit. Every question includes the whole PDF for context. Try a shorter PDF or another model.' : 'OpenAI could not read this input. Try an unlocked PDF, a smaller crop, or another model.',
+        400: value.scope === 'support' ? 'OpenAI could not read this conversation. Try a new conversation or another model.' : code === 'context_length_exceeded' ? 'This paper exceeds the model’s reading limit. Every question includes the whole PDF for context. Try a shorter PDF or another model.' : 'OpenAI could not read this input. Try an unlocked PDF, a smaller crop, or another model.',
         401: 'OpenAI did not accept this API key. Check it in Connection.',
         403: 'This API key cannot access the selected model. Choose another model in Connection.',
         404: 'This model is unavailable for your account. Choose another model in Connection.',

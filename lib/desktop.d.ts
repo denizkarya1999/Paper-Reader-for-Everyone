@@ -1,5 +1,6 @@
 import type { AskPayload, AskResult, ConnectionState } from './ai-config';
 import type { FocusReply, FocusSettings } from './focus-types';
+import type { SupportPayload } from './reading-support';
 declare global {
   interface Window {
     paperReader?: {
@@ -12,7 +13,7 @@ declare global {
       focusReply: (value: FocusReply) => Promise<boolean>;
       onFocusReminder: (callback: (token: string) => void) => () => void;
       onFocusCancel: (callback: (token: string) => void) => () => void;
-      ask: (value: AskPayload & { id: string }) => Promise<AskResult>;
+      ask: (value: (AskPayload | SupportPayload) & { id: string }) => Promise<AskResult>;
       getConnection: () => Promise<ConnectionState>;
       saveConnection: (value: { apiKey?: string; model: string; remember: boolean }) => Promise<ConnectionState>;
       clearConnection: () => Promise<ConnectionState>;

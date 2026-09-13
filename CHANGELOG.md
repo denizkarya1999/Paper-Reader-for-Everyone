@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0 revision 2 — 2026-09-12
+
+- Show the full Paper Reader for Everyone name in the header and the exact name plus Version 1.3.0 in the footer.
+- Add Focusing Tips for Readers with optional ADHD, AuDHD, autism, and anxiety preferences, paper/book reading, and adjustable session time.
+- Generate practical reading tips and ask follow-ups about focus and motivation through the saved ChatGPT connection, without attaching a PDF.
+- Save focusing conversations separately on this device, with individual deletion, clearing, interruption recovery, and bounded follow-up context.
+- Add ten app screenshots to the repository gallery.
+- Keep the displayed app version at 1.3.0; Debian package revision 2 upgrades the previous installer.
+
 ## 1.3 — 2026-09-12
 
 - Include the complete PDF with highlighted text and cropped-area questions, connecting answers to relevant material elsewhere with requested page references.

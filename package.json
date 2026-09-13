@@ -1,7 +1,7 @@
 {
   "name": "paper-reader-for-everyone",
   "version": "1.3.0",
-  "description": "A Linux PDF reader with ChatGPT, saved chats, portable PDF bundles, sticky notes, and a walking focus cat.",
+  "description": "A Linux PDF reader with ChatGPT, flashcards, reading support, saved chats, sticky notes, themes, and a focus cat.",
   "author": {
     "name": "Deniz K. Acikbas"
   },
@@ -24,7 +24,10 @@
     "research",
     "chat-history",
     "focus",
-    "desktop-pet"
+    "desktop-pet",
+    "flashcards",
+    "reading-support",
+    "dark-mode"
   ],
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -101,7 +104,8 @@
         "libasound2 | libasound2t64"
       ]
     },
-    "artifactName": "paper-reader-for-everyone_${version}_${arch}.${ext}"
+    "artifactName": "paper-reader-for-everyone_${version}-2_${arch}.${ext}",
+    "buildNumber": "2"
   },
   "desktopName": "paper-reader-for-everyone.desktop"
 }

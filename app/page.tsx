@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, Upload, FileText, Archive, MessageSquare, Cat, Layers3, Highlighter, Scan, StickyNote, Sparkles, Download, Settings2, X, ChevronLeft, ChevronRight, Minus, Plus, Check, Trash2, LoaderCircle, FolderOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { BookOpen, Lightbulb, Upload, FileText, Archive, MessageSquare, Cat, Layers3, Highlighter, Scan, StickyNote, Sparkles, Download, Settings2, X, ChevronLeft, ChevronRight, Minus, Plus, Check, Trash2, LoaderCircle, FolderOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import type { Chat, Note, Paper, Selection } from '@/lib/reader-types';
 import { addChat, chatCounts, clearChats, finishChat, listChats, listPapers, recoverInterruptedChats, removeChat, removePaper, restoreBundle, savePaper } from '@/lib/storage';
 import PdfPage from '@/components/pdf-page';
@@ -9,6 +9,8 @@ import ChatHistory from '@/components/chat-history';
 import SettingsPage from '@/components/settings-page';
 import AboutPage from '@/components/about-page';
 import FlashcardsPage from '@/components/flashcards-page';
+import ReadingSupportPage from '@/components/reading-support-page';
+import { DEFAULT_SUPPORT, SUPPORT_LIMIT, SUPPORT_STORAGE_KEY, finishSupport, restoreSupport, supportHistory, supportPreferencesSchema, type SupportState, type SupportPayload } from '@/lib/reading-support';
 import { MAX_FLASHCARDS, flashcardBatches } from '@/lib/flashcards';
 import { APP_INFO, type Theme, type SettingsTab } from '@/lib/app-info';
 import { parseQuiz, quizPrompt } from '@/lib/focus-types';
@@ -28,10 +30,22 @@ export default function Home() {
   const [opening, setOpening] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [settings, setSettings] = useState(false);
-  const [view, setView] = useState<'reader' | 'settings' | 'about' | 'flashcards'>('reader');
+  const [view, setView] = useState<'reader' | 'settings' | 'about' | 'flashcards' | 'support'>('reader');
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('appearance');
   const [theme, setTheme] = useState<Theme>(() => document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
   const [studyDeckId, setStudyDeckId] = useState('');
+  const [supportInitial] = useState(() => {
+    try { return { value: restoreSupport(localStorage.getItem(SUPPORT_STORAGE_KEY)), error: '' }; }
+    catch { return { value: { preferences: DEFAULT_SUPPORT, entries: [] } as SupportState, error: 'Could not load focusing conversations from this device. New replies will remain available for this session. Clear the conversation to reset its saved data.' }; }
+  });
+  const [support, setSupport] = useState<SupportState>(supportInitial.value);
+  const [supportStorageError, setSupportStorageError] = useState(supportInitial.error);
+  const supportWritable = useRef(!supportInitial.error);
+  useEffect(() => {
+    if (!supportWritable.current || !supportPreferencesSchema.safeParse(support.preferences).success) return;
+    try { localStorage.setItem(SUPPORT_STORAGE_KEY, JSON.stringify(support)); setSupportStorageError(''); }
+    catch { setSupportStorageError('Could not save focusing conversations on this device. Replies are available for this session.'); }
+  }, [support]);
   const [connection, setConnection] = useState<ConnectionState>({ hasKey: false, saved: false, model: DEFAULT_MODEL, canRemember: false });
   const [model, setModel] = useState<string>(DEFAULT_MODEL);
   const [scope, setScope] = useState<'selection' | 'paper'>('paper');
@@ -45,7 +59,7 @@ export default function Home() {
   const [status, setStatus] = useState('');
   const [activeNote, setActiveNote] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
-  const request = useRef<{ id: string; paperId: string; catToken?: string } | null>(null);
+  const request = useRef<{ id: string; paperId: string; catToken?: string; support?: boolean } | null>(null);
   const currentPaper = useRef<Paper | null>(null); currentPaper.current = paper;
   const saveSequence = useRef(0);
   const historySequence = useRef(0);
@@ -59,7 +73,7 @@ export default function Home() {
     catch { return 'Theme applied. Device storage is unavailable, so this choice may not be remembered.'; }
   }
   useEffect(() => {
-    if (view !== 'reader') document.getElementById(view === 'about' ? 'about-title' : view === 'settings' ? 'settings-title' : 'flashcards-title')?.focus();
+    if (view !== 'reader') document.getElementById(view === 'about' ? 'about-title' : view === 'settings' ? 'settings-title' : view === 'support' ? 'support-title' : 'flashcards-title')?.focus();
   }, [view]);
 
   async function refreshHistory() {
@@ -84,7 +98,7 @@ export default function Home() {
       }).catch(() => { if (alive) { setError('Could not load your saved connection. Open Connection to set it up.'); setSettings(true); } });
     } else setSettings(true);
     listPapers().then(items => { if (alive) { setPapers(items); setHydrated(true); } }).catch(e => { if (alive) { setError(e.message); setHydrated(true); } });
-    return () => { alive = false; if (request.current) { window.paperReader?.cancel(request.current.id); void finishChat(request.current.paperId, request.current.id, { status: 'interrupted' }).catch(() => {}); } };
+    return () => { alive = false; if (request.current) { window.paperReader?.cancel(request.current.id); if (!request.current.support) void finishChat(request.current.paperId, request.current.id, { status: 'interrupted' }).catch(() => {}); } };
   }, []);
   useEffect(() => { setChats([]); void refreshHistory(); }, [paper?.id]);
   useEffect(() => { window.paperReader?.focusContext(paper?.id || null); }, [paper?.id]);
@@ -106,6 +120,7 @@ export default function Home() {
     const pending = request.current; request.current = null; setBusy(false);
     if (pending) {
       window.paperReader?.cancel(pending.id);
+      if (pending.support) { setSupport(value => ({ ...value, entries: finishSupport(value.entries, pending.id, { status: 'cancelled' }) })); return; }
       if (pending.catToken) void window.paperReader?.focusReply({ token: pending.catToken, error: 'Quiz cancelled. Come back to your paper when you’re ready.' }).catch(() => {});
       void finishChat(pending.paperId, pending.id, { status: 'cancelled' }).then(refreshHistory).catch(() => setError('The cancellation could not be saved in chat history.'));
     }
@@ -160,6 +175,34 @@ export default function Home() {
   }
   function noteSelection(): Selection | null {
     return scope === 'paper' || !selection ? { page: 1, kind: 'paper', text: '', rects: [{ x: .87, y: .05, width: .03, height: .03 }] } : selection;
+  }
+  async function askForSupport(question: string) {
+    const asked = question.trim(); const preferences = supportPreferencesSchema.safeParse(support.preferences);
+    if (!asked || asked.length > 4000 || !preferences.success || busy || request.current) return;
+    if (support.entries.length >= SUPPORT_LIMIT) { setError('Clear the focusing conversation before starting another.'); return; }
+    if (!connection.hasKey) { setSettings(true); return; }
+    const bridge = window.paperReader;
+    if (!bridge) { setError('ChatGPT is available in the installed desktop app.'); return; }
+    const id = crypto.randomUUID(); const chosenModel = model as SupportPayload['model'];
+    const history = supportHistory(support.entries);
+    request.current = { id, paperId: '', support: true }; setBusy(true); setError('');
+    setSupport(value => ({ ...value, entries: [...value.entries, { id, question: asked, answer: '', preferences: preferences.data, model: chosenModel, createdAt: new Date().toISOString(), status: 'pending' }] }));
+    try {
+      const result = await bridge.ask({ id, scope: 'support', question: asked, model: chosenModel, preferences: preferences.data, history });
+      if (request.current?.id !== id) return;
+      if (result.error) throw new Error(result.error);
+      if (!result.answer?.trim()) throw new Error('No reply was returned. Please try again.');
+      const answer = result.answer + (result.incomplete ? '\n\n[Reply reached the length limit. Ask a follow-up for more.]' : '');
+      setSupport(value => ({ ...value, entries: finishSupport(value.entries, id, { status: 'completed', answer: answer.slice(0, 20000) }) }));
+    } catch (e) {
+      if (request.current?.id === id) setSupport(value => ({ ...value, entries: finishSupport(value.entries, id, { status: 'error', error: e instanceof Error ? e.message : 'Could not get reading support. Please try again.' }) }));
+    } finally { if (request.current?.id === id) { request.current = null; setBusy(false); } }
+  }
+  function deleteSupport(id?: string) {
+    if (!window.confirm(id ? 'Delete this focusing question and reply from this device?' : 'Clear the focusing conversation and its saved data from this device? Your PDF chats will remain.')) return;
+    if (request.current?.support && (!id || request.current.id === id)) cancelQuestion();
+    supportWritable.current = true;
+    setSupport(value => ({ preferences: supportPreferencesSchema.safeParse(value.preferences).success ? value.preferences : DEFAULT_SUPPORT, entries: id ? value.entries.filter(entry => entry.id !== id) : [] }));
   }
   async function ask(override?: string) {
     const selected = noteSelection(); const asked = (override ?? question).trim();
@@ -329,7 +372,7 @@ export default function Home() {
   const noteCount = paper?.notes.length ?? 0;
   return <main className="app-shell" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); void openFile(e.dataTransfer.files[0]); }}>
     <input ref={input} type="file" accept="application/pdf,application/zip,.pdf,.zip" hidden onChange={e => void openFile(e.target.files?.[0])}/>
-    <header className="app-header"><button className="brand" onClick={() => setLibrary(true)} aria-label="Paper Reader for Everyone — open library"><span className="brand-mark"><BookOpen size={22}/></span><span>Paper Reader<small>for everyone</small></span><span className="version">{APP_INFO.version}</span></button><div className="header-actions"><button className="button quiet" onClick={() => openSettings('cat')} aria-label="Focus cat"><Cat size={17}/><span>Focus cat</span></button><button className="button quiet" onClick={() => setLibrary(true)}><FolderOpen size={17}/><span>My PDFs</span></button><button className="button quiet" aria-current={view === 'settings' ? 'page' : undefined} onClick={() => openSettings()} aria-label="Settings"><Settings2 size={17}/><span>Settings</span></button><button className="button primary" onClick={() => void browse()} disabled={opening}>{opening ? <LoaderCircle className="spin" size={17}/> : <Plus size={18}/>}<span>Open PDF</span></button></div></header>
+    <header className="app-header"><button className="brand" onClick={() => setLibrary(true)} aria-label="Paper Reader for Everyone — open library"><span className="brand-mark"><BookOpen size={22}/></span><span className="brand-title">{APP_INFO.name}</span><span className="version">{APP_INFO.version}</span></button><div className="header-actions"><button className="button quiet" aria-label="Focusing Tips for Readers" aria-current={view === 'support' ? 'page' : undefined} onClick={() => setView('support')}><Lightbulb size={17}/><span>Focusing tips</span></button><button className="button quiet" onClick={() => openSettings('cat')} aria-label="Focus cat"><Cat size={17}/><span>Focus cat</span></button><button className="button quiet" aria-label="My PDFs" onClick={() => setLibrary(true)}><FolderOpen size={17}/><span>My PDFs</span></button><button className="button quiet" aria-current={view === 'settings' ? 'page' : undefined} onClick={() => openSettings()} aria-label="Settings"><Settings2 size={17}/><span>Settings</span></button><button className="button primary" onClick={() => void browse()} disabled={opening}>{opening ? <LoaderCircle className="spin" size={17}/> : <Plus size={18}/>}<span>Open PDF</span></button></div></header>
     {error && <div className="error-banner" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><X size={17}/></button></div>}
     <div className="reading-space" hidden={view !== 'reader'}>
     {!paper ? <section className="welcome"><div className="welcome-heading"><span className="eyebrow">YOUR READING SPACE</span><h1>A little clarity.<br/>In the margins.</h1><p>Read a paper. Ask a question.<br/>Keep the insight right where you found it.</p></div><div className="upload-card"><div className="file-symbol"><FileText size={32} strokeWidth={1.5}/><span><Plus size={14}/></span></div><h2>Start with a PDF</h2><p>Drop a PDF or a saved PDF + chats ZIP here.</p><button className="button primary large" onClick={() => void browse()} disabled={opening || !hydrated}>{opening ? <LoaderCircle className="spin" size={18}/> : <Upload size={18}/>} {opening ? 'Opening PDF…' : 'Choose PDF'}</button><small>PDF up to 50 MB · ZIP bundle up to 200 MB</small><button className="example-link" onClick={() => void openExample()} disabled={opening || !hydrated}>Or try an example <ChevronRight size={15}/></button></div><div className="how-it-works"><div><Highlighter size={19}/><strong>01</strong><span>Highlight a passage</span></div><div><Sparkles size={19}/><strong>02</strong><span>Ask ChatGPT</span></div><div><StickyNote size={19}/><strong>03</strong><span>Pin the answer</span></div></div>{papers.length > 0 && <div className="recent"><h2>Pick up where you left off</h2>{papers.slice(0, 3).map(item => <button key={item.id} className="recent-paper" onClick={() => choosePaper(item)}><FileText size={21}/><span>{item.name}<small>{item.notes.length} notes · {new Date(item.updatedAt).toLocaleDateString()}</small></span><ChevronRight size={18}/></button>)}</div>}</section> : <>
@@ -340,8 +383,9 @@ export default function Home() {
     </div>
     {view === 'settings' && <SettingsPage tab={settingsTab} onTab={setSettingsTab} theme={theme} onTheme={changeTheme} connection={connection} onConnection={value => { setConnection(value); setModel(value.model); }} paperCount={papers.length} chatCount={Object.values(counts).reduce((sum, count) => sum + count, 0)} onClearHistory={() => void deleteHistory(true)} onBack={() => setView('reader')} onAbout={() => setView('about')}/>}
     {view === 'flashcards' && paper && <FlashcardsPage key={paper.id} initialDeckId={studyDeckId} filename={paper.name} decks={chats.filter(chat => chat.flashcardCount !== undefined)} busy={busy} model={model} pageCount={pageCount} onGenerate={count => void generateFlashcards(count)} onCancel={cancelQuestion} onDelete={chat => { if (window.confirm('Delete this flashcard set and its chat entry from this device? Saved ZIP copies and pinned notes remain.')) void deleteChat(chat); }} onPin={card => { pinAnswer({ question: card.question, answer: card.answer, model, selection: { kind: 'paper', page: card.page, text: '', rects: [{ x: .87, y: .05, width: .03, height: .03 }] } }); setView('reader'); setPanel(true); }} onPage={page => { changePage(page); setView('reader'); }} onBack={() => setView('reader')} onConnection={() => openSettings('connection')}/>}
+    <div className="reading-space" hidden={view !== 'support'}>{supportStorageError && <p className="error-banner" role="alert">{supportStorageError}</p>}<ReadingSupportPage canReset={!!supportStorageError} preferences={support.preferences} entries={support.entries} busy={busy} pending={!!request.current?.support} model={model} onPreferences={preferences => setSupport(value => ({ ...value, preferences }))} onAsk={question => void askForSupport(question)} onCancel={cancelQuestion} onDelete={deleteSupport} onBack={() => setView('reader')} onConnection={() => openSettings('connection')}/></div>
     {view === 'about' && <AboutPage onBack={() => setView('reader')} onSettings={() => openSettings()}/>}
-    <footer className="app-footer"><span>Paper Reader for Everyone <span className="footer-version">/ {APP_INFO.version}</span></span><button onClick={() => setView('about')} aria-current={view === 'about' ? 'page' : undefined}>About Us</button><span>Made by {APP_INFO.developer}</span></footer>
+    <footer className="app-footer"><span>{APP_INFO.name} - Version {APP_INFO.version}</span><button onClick={() => setView('about')} aria-current={view === 'about' ? 'page' : undefined}>About Us</button><span>Made by {APP_INFO.developer}</span></footer>
     {settings && <ConnectionDialog connection={connection} onClose={() => setSettings(false)} onChange={value => { setConnection(value); setModel(value.model); }}/>}
     {library && <div className="modal-backdrop" onClick={() => setLibrary(false)}><section className="modal library-modal" role="dialog" aria-modal="true" aria-labelledby="library-title" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Escape') setLibrary(false); }}><button autoFocus className="modal-close" aria-label="Close library" onClick={() => setLibrary(false)}><X size={20}/></button><h2 id="library-title">My PDFs</h2><button className="text-button clear-all-history" disabled={!Object.values(counts).some(count => count > 0)} onClick={() => void deleteHistory(true)}><Trash2 size={13}/>Delete all chat history on this device</button><p>Saved on this device. Use Save PDF + chats to back up a PDF and its conversations together.</p>{papers.length ? papers.map(item => <div className="library-row" key={item.id}><button className="recent-paper" onClick={() => choosePaper(item)}><FileText size={20}/><span>{item.name}<small>{item.notes.length} notes · {counts[item.id] || 0} chats · Page {item.page}</small></span></button><button aria-label={`Remove ${item.name} from this device`} title="Remove from this device" onClick={() => { if (window.confirm(`Remove “${item.name}” and its notes and chats from this device? Save a PDF + chats bundle first to keep them.`)) { if (paper?.id === item.id) cancelQuestion(); void removePaper(item.id).then(() => { setPapers(items => items.filter(p => p.id !== item.id)); if (paper?.id === item.id) { setPaper(null); setSelection(null); setDraft(null); } void refreshHistory(); }).catch(e => setError(e.message)); } }}><Trash2 size={17}/></button></div>) : <p className="library-empty">Your next good read starts here.</p>}<button className="button primary" onClick={() => { setLibrary(false); void browse(); }}><Plus size={17}/>Open PDF</button></section></div>}
   </main>;
