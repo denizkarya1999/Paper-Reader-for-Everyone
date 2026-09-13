@@ -1,6 +1,6 @@
 # Paper Reader for Everyone
 
-**Version 1.2 · Developed by Deniz K. Acikbas**
+**Version 1.3 · Developed by Deniz K. Acikbas**
 
 A simple, installable Linux PDF reader. Highlight a passage or crop a figure, ask ChatGPT a question, and pin the answer as a sticky note on the PDF.
 
@@ -8,12 +8,12 @@ A simple, installable Linux PDF reader. Highlight a passage or crop a figure, as
 
 ## Install on Linux
 
-Download `paper-reader-for-everyone_1.2.0_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
+Download `paper-reader-for-everyone_1.3.0_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
 
 Open it with your system's software installer, or run this command from your download folder:
 
 ```sh
-sudo apt install ./paper-reader-for-everyone_1.2.0_amd64.deb
+sudo apt install ./paper-reader-for-everyone_1.3.0_amd64.deb
 ```
 
 Launch **Paper Reader for Everyone** from your application menu.
@@ -24,12 +24,14 @@ The package targets **64-bit Intel/AMD Debian-based Linux**, including Ubuntu, D
 
 1. Choose **Open PDF**, drag a PDF into the window, or try the included example.
 2. Use **Highlight** to select text, or **Crop area** to select a figure, equation, table, or scanned passage.
-3. Enter your OpenAI API key in the first-run setup, or open **Connection** later. Choose GPT-6 Astra, GPT-5.6 Sol, Terra, or Luna, or the previous GPT-4.1 models.
+3. Enter your OpenAI API key in the first-run setup, or open **Settings → ChatGPT connection** later. Choose GPT-6 Astra, GPT-5.6 Sol, Terra, or Luna, or the previous GPT-4.1 models.
 4. Type a question and press the arrow button or **Ctrl+Enter**.
 5. Choose **Pin as sticky note**. In **Notes**, edit the answer, change its color, or return to its page.
 6. Open **Chats** to revisit every question and answer, delete one exchange, or delete all chats for this PDF.
 7. Choose **Save PDF** for an annotated copy, or **Save PDF + chats** for a portable ZIP containing both.
-8. Open **Focus cat** to set up your optional walking desktop companion.
+8. Open **Settings** for appearance, your API key/model, cat reminders, and local data. Choose **Light** or **Dark** under Appearance.
+9. Choose **Flashcards** above the PDF to generate a study set with as many as 50 questions and answers.
+10. Open **About Us** in the footer to see the app version, developer, languages, and development agent.
 
 ### Summarize or ask about the whole paper
 
@@ -52,6 +54,20 @@ Every question, answer, selection or crop, model name, and request status is sav
 
 Open or drop this ZIP in Paper Reader 1.2 or later to restore the PDF and chats together. Reopening the same bundle merges missing chats without duplicating existing ones or replacing local notes. Bundles are limited to 200 MB. Ordinary **Save PDF** exports notes only. A ZIP is a snapshot: later edits and deletions do not change previously saved copies, and reopening a backup can restore chats you deleted locally. Bundles contain your conversations and document, but no API key.
 
+### Settings, appearance, and About Us
+
+**Settings** brings Appearance, ChatGPT connection, Focus cat, and Local data into one page. API-key replacement/removal, the remembered model, and cat controls work as before. Appearance offers **Light** and **Dark**; the theme is applied immediately and saved on this device. It covers the reader, settings, chats, sticky-note panels, and the cat’s speech bubble. PDF pages and figures keep their original colors, and exported PDFs are unaffected by the interface theme. Your reading position, selections, and draft question remain available when you return from Settings or About Us.
+
+**About Us**, available in the footer and Settings navigation, shows Paper Reader for Everyone, the installed version, developer **Deniz K. Acikbas**, programming languages **TypeScript, JavaScript, HTML and CSS**, and development agent **OpenAI Codex**. Version labels and PDF export metadata use the package version as their source.
+
+### Generate and study flashcards
+
+Open a PDF and choose **Flashcards** above it. Enter a number from **1 to 50** and choose **Generate flashcards**. The app asks your selected ChatGPT model for that many distinct question-and-answer cards grounded in the PDF, with supporting PDF page references. Each card has a question side and a revealable answer side. Use Previous/Next to study, **Read source** to revisit the cited page, or pin an answer as a PDF note.
+
+Sets larger than 10 cards are generated in batches of at most 10. **Every batch sends the full PDF to OpenAI and incurs normal API usage.** A short or unreadable paper may not support the requested number; invalid, duplicate, truncated, or out-of-range responses are reported rather than presented as a complete set. Completed batches are saved immediately and remain available after cancellation, interruption, or a later batch failure.
+
+Each set is stored as an entry in the PDF’s chat history and appears under **Saved sets**. Delete a set from Flashcards or Chats; clearing chat history also clears its flashcard sets. Pinned notes are preserved. **Save PDF + chats** includes complete cards in both the readable HTML transcript and structured JSON. Open these bundles in **version 1.3 or later** to restore and study the flashcards. Older PDF/chat bundles still open normally.
+
 ### Your focus cat
 
 Choose **Focus cat** in the header, turn on **Show my cat**, give it a name, and choose ginger, gray, or cream. It walks along the bottom of your desktop, above ordinary windows, while Paper Reader remains open. Set a reminder interval from 1 to 10,080 minutes, or choose **Never** to keep the cat without timed reminders. Turn off **Show my cat** or click **Hide cat** in its speech bubble to disable it. Preferences survive restarting. Closing Paper Reader closes the cat; it does not launch itself at login. Desktop appearance and placement depend on the Linux window manager and compositor.
@@ -62,7 +78,7 @@ Enable **Ask me ChatGPT quizzes about my PDF** to generate a recall question fro
 
 ### Models
 
-GPT-5.6 Luna is the default for economical everyday reading. Select **GPT-6 Astra** under **Connection → Model** for the most capable option, or GPT-5.6 Sol / Terra for other tradeoffs. GPT-4.1 mini and GPT-4.1 remain available. Your chosen model is saved with your connection and shown above the question box, and answers retain the name of the model that generated them. Account access varies; the app reports an unavailable model instead of silently substituting another.
+GPT-5.6 Luna is the default for economical everyday reading. Select **GPT-6 Astra** under **Settings → ChatGPT connection → Model** for the most capable option, or GPT-5.6 Sol / Terra for other tradeoffs. GPT-4.1 mini and GPT-4.1 remain available. Your chosen model is saved with your connection and shown above the question box, and answers retain the name of the model that generated them. Account access varies; the app reports an unavailable model instead of silently substituting another.
 
 The model IDs and request settings were checked against [OpenAI's model catalog](https://developers.openai.com/api/docs/models) and [GPT-6 Astra guidance](https://developers.openai.com/api/docs/guides/latest-model). Modern reasoning models use low reasoning effort, with extra output space for reasoning and summaries. These choices are fixed in this release, not automatically updated when new models appear.
 
@@ -71,7 +87,7 @@ You can also use **Write a note** to add your own note without ChatGPT. Reading,
 ## Local files and privacy
 
 - PDFs, notes, and chat history are saved automatically in the app's local IndexedDB library, under your system's application-data directory (`~/.config/paper-reader-for-everyone` on most Linux systems).
-- The app has no sign-in, cloud library, or analytics. Document uploads occur when you ask ChatGPT or enable timed PDF quizzes.
+- The app has no sign-in, cloud library, or analytics. Document uploads occur when you ask ChatGPT generate flashcards, or enable timed PDF quizzes.
 - In **Selection** mode, only the selected text or cropped image, the page number, and your question are sent to OpenAI. In **Whole paper** mode, the complete original PDF and your question are sent. The interface identifies the active scope before you send.
 - First-run setup asks for your OpenAI API key. **Remember my key on this device** is enabled by default when secure storage is available. The key is encrypted using Electron safeStorage and the Linux system keyring, saved in an owner-only (0600) connection file, and loaded automatically on later launches. Your selected model is also remembered.
 - **Connection** lets you replace the key, change models, or **Remove key**. Leave the replacement field blank to keep the existing key. The decrypted saved key remains in the desktop main process; it is not returned to the PDF interface, saved in the PDF library, or exported with a PDF.
@@ -118,7 +134,7 @@ The installer is written to `release/`. `npm run package:dir` makes an unpacked 
 - **fflate**: portable ZIP bundles with annotated PDFs and HTML/JSON transcripts.
 - **OpenAI Responses API**: text, image, and complete PDF questions. See [file input documentation](https://developers.openai.com/api/docs/guides/file-inputs) and [image input documentation](https://developers.openai.com/api/docs/guides/images-vision).
 
-The automated test suite covers export/reimport, Unicode, rotations, existing annotations, duplicate prevention, deletion, input validation, selected-content requests, full-PDF payloads, all model options, summary note round trips, cancellation, response limits, API error handling, and protected-key save/restore/replacement/removal, legacy-library migration, chat deletion races, bundle round trips and validation, and cat settings/timer/cancellation behavior. The system keyring was also checked locally with a test-only value; no OpenAI request was made. Live OpenAI responses require your own valid API key; tests use simulated API responses and do not incur API charges.
+The automated test suite covers export/reimport, Unicode, rotations, existing annotations, duplicate prevention, deletion, input validation, selected-content requests, full-PDF payloads, all model options, summary note round trips, cancellation, response limits, API error handling, and protected-key save/restore/replacement/removal, legacy-library migration, chat deletion races, bundle round trips and validation, cat settings/timer/cancellation behavior, and flashcard counts, batching, cancellation, validation, and bundle round trips. The system keyring was also checked locally with a test-only value; no OpenAI request was made. Live OpenAI responses require your own valid API key; tests use simulated API responses and do not incur API charges.
 
 ## License
 

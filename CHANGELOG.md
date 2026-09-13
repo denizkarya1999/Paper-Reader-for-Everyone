@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3 — 2026-09-12
+
+- Add an About Us page showing the app name, package version, developer, programming languages, and OpenAI Codex development credit.
+- Add a Settings page combining appearance, ChatGPT connection, focus-cat preferences, and local-data controls.
+- Add persistent light and dark modes, including the cat’s reminder bubble, while preserving original PDF colors.
+- Generate 1–50 PDF-grounded flashcards with revealable answers, source pages, saved sets, and pin-as-note actions.
+- Generate larger sets in batches and keep completed cards after interruption or cancellation.
+- Include flashcards in PDF + chats ZIP bundles and readable transcripts; preserve compatibility with existing bundles.
+- Keep reading state when switching between the reader and the new pages.
+
 ## 1.2 — 2026-09-12
 
 - Save chat history with each PDF, including questions, answers, crops, models, and cancelled or interrupted requests.

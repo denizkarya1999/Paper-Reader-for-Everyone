@@ -73,7 +73,7 @@ export function addChat(chat: Chat): Promise<void> {
     paper.onsuccess = () => { if (paper.result) tx.objectStore('chats').add(chat); else tx.abort(); };
   }));
 }
-export function finishChat(paperId: string, id: string, patch: Pick<Chat, 'status'> & Partial<Pick<Chat, 'question' | 'answer' | 'error'>>): Promise<boolean> {
+export function finishChat(paperId: string, id: string, patch: Pick<Chat, 'status'> & Partial<Pick<Chat, 'question' | 'answer' | 'error' | 'flashcards'>>): Promise<boolean> {
   return serialize(() => transaction(['chats'], 'readwrite', (tx, result) => {
     const store = tx.objectStore('chats'); const request = store.get([paperId, id]);
     request.onsuccess = () => {

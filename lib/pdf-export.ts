@@ -1,3 +1,4 @@
+import { APP_INFO } from './app-info';
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFString, StandardFonts, rgb, type PDFPage } from 'pdf-lib';
 import { z } from 'zod';
 import type { Note, Paper } from './reader-types';
@@ -56,7 +57,7 @@ export async function exportPdf(paper: Paper): Promise<Uint8Array> {
     const popup = context.obj({ Type: 'Annot', Subtype: 'Popup', Rect: [x, y - 180, x + 240, y], Parent: stickyRef, Open: false, NM: PDFString.of(`paper-reader:${note.id}:popup`) });
     const popupRef = context.register(popup); sticky.set(PDFName.of('Popup'), popupRef); annots.push(popupRef);
   }
-  doc.setProducer('Paper Reader for Everyone 1.2');
+  doc.setProducer(APP_INFO.name + ' ' + APP_INFO.version);
   return doc.save();
 }
 
@@ -84,7 +85,7 @@ export async function examplePdf(): Promise<Uint8Array> {
   page2.drawText('Keep a useful margin.', { x: 62, y: 680, size: 30, font: bold, color: ink });
   page2.drawText('03   Make the note yours', { x: 62, y: 615, size: 17, font: bold, color: ink });
   page2.drawText('A useful note records a question, an explanation, or a connection.\nKeep it short enough to be useful when you return to the paper.\n\nUse ChatGPT to clarify a selected passage, then check the answer\nagainst the source. Choose Whole paper to summarize the complete PDF.\n\nSave an annotated PDF to carry your notes into another PDF reader.\nYou can also reopen it here and continue editing.', { x: 62, y: 579, size: 13, lineHeight: 21, font: regular, color: ink });
-  page2.drawText('Paper Reader for Everyone 1.2 | Deniz K. Acikbas', { x: 62, y: 55, size: 9, font: sans, color: muted });
+  page2.drawText(APP_INFO.name + ' ' + APP_INFO.version + ' | ' + APP_INFO.developer, { x: 62, y: 55, size: 9, font: sans, color: muted });
   page2.drawText('2', { x: 541, y: 55, size: 9, font: sans, color: muted });
   doc.setTitle('A little guide to reading research'); doc.setAuthor('Deniz K. Acikbas'); return doc.save();
 }

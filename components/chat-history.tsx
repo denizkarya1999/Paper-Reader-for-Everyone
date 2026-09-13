@@ -14,7 +14,7 @@ export default function ChatHistory({ chats, loading, onDelete, onClear, onOpen,
         {chat.selection.text && <blockquote>{chat.selection.text}</blockquote>}
         {chat.selection.image && <img src={chat.selection.image} alt={'Saved crop from page ' + chat.selection.page}/>}
         {chat.answer ? <p className="answer-text">{chat.answer}</p> : <p className="chat-status">{chat.status === 'pending' ? 'Waiting for an answer…' : chat.error || (chat.status === 'cancelled' ? 'Cancelled. No answer was saved.' : 'This request was interrupted before an answer was saved.')}</p>}
-        <div className="chat-actions"><button className="text-button" onClick={() => onOpen(chat)}><ArrowUpRight size={13}/>Open in reader</button>{chat.answer && <button className="text-button" onClick={() => onPin(chat)}><StickyNote size={13}/>Pin answer</button>}</div>
+        <div className="chat-actions"><button className="text-button" onClick={() => onOpen(chat)}><ArrowUpRight size={13}/>{chat.flashcardCount !== undefined ? 'Study flashcards' : 'Open in reader'}</button>{chat.answer && !chat.flashcardCount && <button className="text-button" onClick={() => onPin(chat)}><StickyNote size={13}/>Pin answer</button>}</div>
       </details>
     </article>)}
   </div>;

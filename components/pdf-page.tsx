@@ -21,7 +21,7 @@ export default function PdfPage({ bytes, pageNumber, zoom, mode, notes, selectio
 
   useEffect(() => {
     if (!host.current) return;
-    const observer = new ResizeObserver(entries => setAvailableWidth(entries[0].contentRect.width));
+    const observer = new ResizeObserver(entries => { if (entries[0].contentRect.width > 0) setAvailableWidth(entries[0].contentRect.width); });
     observer.observe(host.current); return () => observer.disconnect();
   }, []);
   useEffect(() => {
