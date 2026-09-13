@@ -1,4 +1,5 @@
-import { ArrowUp, BookOpen, LoaderCircle, Plus, Scan, Sparkles, StickyNote, X } from 'lucide-react';
+import ReadAloud from './read-aloud';
+import { ArrowUp, BookOpen, LoaderCircle, PenLine, Plus, Scan, Sparkles, StickyNote, X } from 'lucide-react';
 import { MODELS, SUMMARY_QUESTION } from '@/lib/ai-config';
 import type { Selection } from '@/lib/reader-types';
 import { MAX_CROPS, selectionCrops, selectionLabel } from '@/lib/crops';
@@ -10,7 +11,7 @@ type Props = {
   onScope: (scope: 'selection' | 'paper') => void; onQuestion: (question: string) => void;
   onAsk: (question?: string) => void; onCancel: () => void; onClear: () => void;
   onPin: () => void; onNote: () => void; onSettings: () => void;
-  onRemoveCrop: (index: number) => void; onPage: (page: number) => void;
+  onRemoveCrop: (index: number) => void; onDrawCrop: (index: number) => void; onPage: (page: number) => void;
 };
 export default function AskPanel(props: Props) {
   const { scope, selection, draft, busy, question, model, pageCount, filename } = props;
@@ -32,15 +33,16 @@ export default function AskPanel(props: Props) {
       </div> : selection ? <>
         <div className="section-label">{crops.length ? 'SELECTED CROPS' : 'YOUR SELECTION'} <span>{crops.length ? `${crops.length} / ${MAX_CROPS}` : `PAGE ${selection.page}`}</span><button aria-label="Clear selection" title="Clear all selections" disabled={busy} onClick={props.onClear}><X size={14}/></button></div>
         {crops.length ? <>
-          <p className="crop-help">Drag more rectangles on this or another page to add crops. All selected crops will be sent together.</p>
+          <p className="crop-help">Drag more rectangles on this or another page to add crops. Use Draw on crop to mark details. All selected crops will be sent together.</p>
           <ol className="crop-list" aria-label="Selected crops">{crops.map((crop, index) => <li key={index} className="selection-card crop-card">
             <div className="crop-card-heading"><button className="text-button" onClick={() => props.onPage(crop.page)}>Crop {index + 1} · Page {crop.page}</button><button aria-label={`Remove crop ${index + 1}`} disabled={busy} onClick={() => props.onRemoveCrop(index)}><X size={14}/></button></div>
             {crop.image ? <img src={crop.image} alt={`Crop ${index + 1} from PDF page ${crop.page}`}/> : <p>Crop location saved. Select this area again to attach its image.</p>}
+            {crop.image && <button className="text-button draw-crop-button" aria-label={`Draw on crop ${index + 1}`} disabled={busy} onClick={() => props.onDrawCrop(index)}><PenLine size={14}/>{crop.drawing?.strokes.length ? 'Edit drawing' : 'Draw on crop'}</button>}
           </li>)}</ol>
         </> : <div className="selection-card"><blockquote>{selection.text}</blockquote></div>}
         <p className="paper-disclosure">Whole-paper context is included. ChatGPT can connect this selection to findings, definitions, and figures elsewhere in the PDF, with page references. Sending the full PDF may cost more and take a few minutes.</p>
       </> : null}
-      {draft && <div className="answer-card"><div className="answer-label"><Sparkles size={16}/>ChatGPT <small>{MODELS.find(item => item.id === draft.model)?.label.split(' · ')[0] || draft.model}</small></div><p className="crop-help">{selectionLabel(draft.selection)}</p><p className="answer-text">{draft.answer}</p><button className="button pin-button" onClick={props.onPin}><StickyNote size={16}/>{whole ? 'Save as note on page 1' : 'Pin as sticky note'}</button></div>}
+      {draft && <div className="answer-card"><div className="answer-label"><Sparkles size={16}/>ChatGPT <small>{MODELS.find(item => item.id === draft.model)?.label.split(' · ')[0] || draft.model}</small></div><p className="crop-help">{selectionLabel(draft.selection)}</p><p className="answer-text">{draft.answer}</p><ReadAloud id={'chat-' + (draft.chatId || 'draft')} text={draft.answer}/><button className="button pin-button" onClick={props.onPin}><StickyNote size={16}/>{whole ? 'Save as note on page 1' : 'Pin as sticky note'}</button></div>}
       {selection && !whole && !draft && !busy && <div className="suggestions"><p>A good place to start</p>{['Explain this in simple terms', 'What is the key takeaway?', 'What assumptions are being made?'].map(text => <button key={text} onClick={() => props.onQuestion(text)}>{text}<Plus size={14}/></button>)}</div>}
       {busy && <div className="thinking" role="status"><LoaderCircle size={17} className="spin"/>{whole ? 'Reading the whole paper…' : 'Reading your selection with the whole paper…'}<button onClick={props.onCancel}>Cancel</button></div>}
     </div>

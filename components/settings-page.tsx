@@ -1,6 +1,7 @@
-import { ArrowLeft, Cat, Database, Info, Moon, Palette, Sparkles, Sun, Trash2 } from 'lucide-react';
+import { ArrowLeft, Download, Cat, Database, Info, Moon, Palette, Sparkles, Sun, Trash2 } from 'lucide-react';
 import type { ConnectionState } from '@/lib/ai-config';
 import type { SettingsTab, Theme } from '@/lib/app-info';
+import UpdatesPanel from './updates-panel';
 import ConnectionDialog from './connection-dialog';
 import FocusDialog from './focus-dialog';
 import { useEffect, useState } from 'react';
@@ -16,6 +17,7 @@ const sections = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'connection', label: 'ChatGPT connection', icon: Sparkles },
   { id: 'cat', label: 'Focus cat', icon: Cat },
+  { id: 'updates', label: 'App updates', icon: Download },
   { id: 'storage', label: 'Local data', icon: Database },
 ] as const;
 export default function SettingsPage(props: Props) {
@@ -29,6 +31,7 @@ export default function SettingsPage(props: Props) {
         {props.tab === 'appearance' && <><h2>Appearance</h2><p>Choose a light or dark reading space. Your choice is remembered on this device.</p><div className="theme-options" role="group" aria-label="Color theme">{(['light', 'dark'] as const).map(theme => <button key={theme} className={'theme-option ' + theme} aria-pressed={props.theme === theme} onClick={() => setMessage(props.onTheme(theme))}><span className="theme-preview" aria-hidden="true"><span className="preview-sidebar"/><span className="preview-paper"/><span className="preview-note"/></span><span className="theme-option-label">{theme === 'light' ? <Sun size={18}/> : <Moon size={18}/>}<strong>{theme === 'light' ? 'Light' : 'Dark'}</strong><span>{props.theme === theme ? 'Selected' : 'Choose'}</span></span></button>)}</div><p className="settings-help">The PDF keeps its original page and figure colors in either theme.</p></>}
         {props.tab === 'connection' && <ConnectionDialog embedded connection={props.connection} onChange={props.onConnection} onClose={() => setMessage('Connection saved.')} />}
         {props.tab === 'cat' && <FocusDialog embedded onClose={() => setMessage('Cat settings saved.')} />}
+        {props.tab === 'updates' && <UpdatesPanel/>}
         {props.tab === 'storage' && <><h2>Local data</h2><p>Your PDFs, notes, and chats are stored on this device.</p><div className="storage-totals"><div><strong>{props.paperCount}</strong><span>Saved PDFs</span></div><div><strong>{props.chatCount}</strong><span>Saved chats</span></div></div><h3>Take your reading with you</h3><p>Open a PDF and choose <strong>Save PDF + chats</strong> to save a portable ZIP with the annotated document and its chat history. Open that ZIP here to restore it.</p><div className="data-action"><div><h3>Clear chat history</h3><p>Delete conversations and flashcard sets for every PDF on this device. PDFs and pinned notes are kept. Previously saved ZIP bundles are unchanged.</p></div><button className="button danger" disabled={props.chatCount === 0} onClick={props.onClearHistory}><Trash2 size={15}/>Delete all chat history</button></div><p className="settings-help">To delete one conversation, open its PDF and go to Chats.</p></>}
       </div>
     </div>

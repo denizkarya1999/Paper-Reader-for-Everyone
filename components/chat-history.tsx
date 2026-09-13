@@ -1,3 +1,4 @@
+import ReadAloud from './read-aloud';
 import { ArrowUpRight, MessageSquare, StickyNote, Trash2 } from 'lucide-react';
 import { MODELS } from '@/lib/ai-config';
 import type { Chat } from '@/lib/reader-types';
@@ -15,7 +16,7 @@ export default function ChatHistory({ chats, loading, onDelete, onClear, onOpen,
         {chat.selection.text && <blockquote>{chat.selection.text}</blockquote>}
         {selectionCrops(chat.selection).map((crop, index) => <figure className="saved-crop" key={index}><figcaption>Crop {index + 1} · PDF page {crop.page}</figcaption>{crop.image && <img src={crop.image} alt={`Saved crop ${index + 1} from page ${crop.page}`}/>}</figure>)}
         {chat.answer ? <p className="answer-text">{chat.answer}</p> : <p className="chat-status">{chat.status === 'pending' ? 'Waiting for an answer…' : chat.error || (chat.status === 'cancelled' ? 'Cancelled. No answer was saved.' : 'This request was interrupted before an answer was saved.')}</p>}
-        <div className="chat-actions"><button className="text-button" onClick={() => onOpen(chat)}><ArrowUpRight size={13}/>{chat.flashcardCount !== undefined ? 'Study flashcards' : 'Open in reader'}</button>{chat.answer && !chat.flashcardCount && <button className="text-button" onClick={() => onPin(chat)}><StickyNote size={13}/>Pin answer</button>}</div>
+        <ReadAloud id={'chat-' + chat.id} text={chat.answer}/><div className="chat-actions"><button className="text-button" onClick={() => onOpen(chat)}><ArrowUpRight size={13}/>{chat.flashcardCount !== undefined ? 'Study flashcards' : 'Open in reader'}</button>{chat.answer && !chat.flashcardCount && <button className="text-button" onClick={() => onPin(chat)}><StickyNote size={13}/>Pin answer</button>}</div>
       </details>
     </article>)}
   </div>;

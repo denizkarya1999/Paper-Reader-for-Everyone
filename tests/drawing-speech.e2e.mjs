@@ -1,0 +1,122 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { _electron, expect } from '@playwright/test';
+import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+test('desktop: edit marked crops and read AI answers throughout the app', { timeout: 120000 }, async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'paper-reader-drawing-ui-'));
+  const env = { ...process.env, PAPER_READER_TEST_DATA: directory }; delete env.ELECTRON_RUN_AS_NODE;
+  const app = await _electron.launch({ args: [...(process.env.CI ? ['--no-sandbox'] : []), '.'], env });
+  const page = await app.firstWindow(); const errors = [];
+  app.process().stderr.on('data', data => { if (/Error|error|FATAL/.test(String(data))) console.error(String(data)); });
+  page.on('pageerror', error => errors.push(error.message));
+  try {
+    await app.evaluate((_electron, encoded) => {
+      globalThis.testRequests = []; globalThis.speechRequests = [];
+      globalThis.fetch = async (url, options) => {
+        const body = JSON.parse(options.body);
+        if (url === 'https://api.openai.com/v1/audio/speech') {
+          globalThis.speechRequests.push(body);
+          if (globalThis.failSpeech) return new Response('', { status: 429 });
+          return new Response(Buffer.from(encoded, 'base64'), { headers: { 'content-type': 'audio/mpeg' } });
+        }
+        if (url !== 'https://api.openai.com/v1/responses') throw new Error('Unexpected network request');
+        globalThis.testRequests.push(body);
+        const question = JSON.stringify(body.input);
+        let text = 'The marked details show how the concepts relate on PDF page 1.';
+        if (question.includes('Create exactly 1 different')) text = JSON.stringify({ cards: [{ question: 'What should you read first?', answer: 'Begin with the research question.', page: 1 }] });
+        if (question.includes('recall question')) text = JSON.stringify({ question: 'What is the central idea?', answer: 'Read with a clear question in mind.' });
+        return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text }] }] });
+      };
+    }, (await readFile('tests/fixtures/silence.mp3')).toString('base64'));
+    await page.waitForFunction(() => !!window.paperReader);
+    await page.evaluate(() => window.paperReader.saveConnection({ apiKey: 'sk-test-placeholder', model: 'gpt-4.1-mini', remember: false }));
+    await page.reload();
+    await page.getByRole('button', { name: 'Or try an example' }).click();
+    await page.locator('.pdf-page:not(.is-loading)').waitFor();
+    await page.getByRole('button', { name: 'Crop & draw', exact: true }).click();
+    await page.bringToFront(); await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true);
+    await page.locator('.crop-layer').click({ trial: true });
+    const box = await page.locator('.crop-layer').boundingBox();
+    await page.mouse.move(box.x + box.width * .1, box.y + box.height * .1); await page.mouse.down();
+    await page.mouse.move(box.x + box.width * .8, box.y + box.height * .38, { steps: 10 }); await page.mouse.up();
+    const dialog = page.getByRole('dialog', { name: 'Draw on crop 1' }); await expect(dialog).toBeVisible();
+    const original = await page.locator('.crop-card img').getAttribute('src');
+    const mark = async (tool, from, to) => {
+      await dialog.getByRole('button', { name: tool, exact: true }).click();
+      const canvas = dialog.locator('canvas'); await expect(canvas).toBeVisible(); const box = await canvas.boundingBox();
+      await page.mouse.move(box.x + box.width * from[0], box.y + box.height * from[1]); await page.mouse.down();
+      await page.mouse.move(box.x + box.width * to[0], box.y + box.height * to[1], { steps: 12 }); await page.mouse.up();
+    };
+    await mark('Pen', [.15, .65], [.45, .67]);
+    await mark('Highlighter', [.12, .38], [.8, .38]);
+    await mark('Arrow', [.65, .75], [.53, .52]);
+    await mark('Circle', [.15, .15], [.6, .5]);
+    await expect(dialog.getByRole('status')).toHaveText('4 marks');
+    await dialog.getByLabel('Undo drawing').click(); await expect(dialog.getByRole('status')).toHaveText('3 marks');
+    await dialog.getByLabel('Redo drawing').click(); await expect(dialog.getByRole('status')).toHaveText('4 marks');
+    await mkdir('test-results', { recursive: true }); await page.screenshot({ path: 'test-results/crop-drawing.png' });
+    await dialog.getByRole('button', { name: 'Use marked crop', exact: true }).click();
+    const marked = await page.locator('.crop-card img').getAttribute('src'); assert.notEqual(marked, original);
+    await expect(page.locator('.crop-drawing-overlay path')).toHaveCount(4);
+    await page.getByRole('button', { name: 'Draw on crop 1', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Clear drawing', exact: true }).click(); await expect(dialog.getByRole('status')).toHaveText('0 marks');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click(); assert.equal(await page.locator('.crop-card img').getAttribute('src'), marked);
+    await page.getByLabel('Question about your selection', { exact: true }).fill('Explain the marked details.');
+    await page.getByRole('button', { name: 'Ask ChatGPT', exact: true }).last().click();
+    await expect(page.locator('.answer-card')).toContainText('The marked details');
+    assert.equal(await app.evaluate(() => globalThis.testRequests[0].input[0].content.find(item => item.type === 'input_image').image_url), marked);
+    assert.equal(await app.evaluate(() => globalThis.speechRequests.length), 0);
+    const read = async locator => {
+      await locator.click(); await expect(page.locator('.speech-status')).toContainText('Reading aloud', { timeout: 15000 });
+      await page.locator('.speech-status').getByRole('button', { name: 'Pause', exact: true }).click(); await expect(page.locator('.speech-status')).toContainText('Reading paused');
+      await page.locator('.speech-status').getByRole('button', { name: 'Resume', exact: true }).click(); await expect(page.locator('.speech-status')).toContainText('Reading aloud');
+      await page.locator('.speech-status').getByRole('button', { name: 'Stop', exact: true }).click(); await expect(page.locator('.speech-status')).toHaveCount(0);
+    };
+    await read(page.locator('.answer-card').getByRole('button', { name: 'Read aloud', exact: true }));
+    await page.getByRole('button', { name: 'Pin as sticky note', exact: true }).click(); await expect(page.locator('.crop-drawing-overlay path')).toHaveCount(4);
+    await read(page.locator('.sticky-card').getByRole('button', { name: 'Read aloud', exact: true }));
+    await page.getByRole('button', { name: /^Chats/ }).click();
+    await read(page.locator('.chat-entry').getByRole('button', { name: 'Read aloud', exact: true }));
+    await page.getByRole('button', { name: 'Open in reader', exact: true }).click();
+    await page.getByRole('button', { name: 'Draw on crop 1', exact: true }).click(); await expect(dialog.getByRole('status')).toHaveText('4 marks');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('button', { name: 'Flashcards', exact: true }).click(); await page.getByLabel('Number of flashcards').fill('1');
+    await page.getByRole('button', { name: 'Generate flashcards', exact: true }).click();
+    await read(page.getByRole('button', { name: 'Read question aloud', exact: true }));
+    await page.getByRole('button', { name: 'Reveal flashcard answer', exact: true }).click();
+    await read(page.getByRole('button', { name: 'Read answer aloud', exact: true }));
+    await page.getByRole('button', { name: 'Focusing Tips for Readers', exact: true }).click();
+    await page.getByRole('button', { name: 'Generate focusing tips', exact: true }).click();
+    await read(page.locator('.support-answer').getByRole('button', { name: 'Read aloud', exact: true }));
+    await app.evaluate(() => { globalThis.failSpeech = true; });
+    await page.locator('.support-answer').getByRole('button', { name: 'Read aloud', exact: true }).click();
+    await expect(page.locator('.speech-status')).toContainText('usage or rate limit');
+    await page.locator('.speech-status').getByRole('button', { name: 'Dismiss', exact: true }).click();
+    await app.evaluate(() => { globalThis.failSpeech = false; });
+    await page.getByRole('button', { name: 'Settings', exact: true }).click(); await page.getByRole('button', { name: 'App updates', exact: true }).click();
+    await expect(page.getByRole('checkbox', { name: 'Automatically check for and download updates' })).toBeChecked();
+    await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeDisabled();
+    await page.screenshot({ path: 'test-results/updates.png' });
+    await page.getByRole('button', { name: 'Appearance', exact: true }).click(); await page.getByRole('button', { name: 'Dark Choose', exact: true }).click();
+    await page.getByRole('button', { name: 'Back to reader', exact: true }).click();
+    await page.getByRole('button', { name: 'Draw on crop 1', exact: true }).click();
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(780, 720));
+    await page.screenshot({ path: 'test-results/crop-drawing-dark-small.png' });
+    await expect(dialog.getByRole('button', { name: 'Use marked crop', exact: true })).toBeInViewport();
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    const catWindow = app.waitForEvent('window');
+    await page.evaluate(() => window.paperReader.saveFocus({ enabled: true, name: 'Mochi', color: 'ginger', minutes: null, quizzes: true }));
+    const cat = await catWindow; await cat.waitForLoadState('domcontentloaded');
+    await cat.getByRole('button', { name: 'Mochi — check in', exact: true }).click();
+    await expect(cat.locator('#reveal')).toBeVisible(); await cat.locator('#reveal').click();
+    await cat.getByRole('button', { name: 'Read aloud', exact: true }).click();
+    await expect(page.locator('.speech-status')).toContainText('Reading aloud');
+    await cat.getByRole('button', { name: 'Dismiss reminder', exact: true }).click(); await expect(page.locator('.speech-status')).toHaveCount(0);
+    assert.deepEqual(errors, []);
+  } catch (error) {
+    await mkdir('test-results', { recursive: true }); await page.screenshot({ path: 'test-results/drawing-speech-failure.png' }).catch(() => {}); throw error;
+  } finally { await app.close(); await rm(directory, { recursive: true, force: true }); }
+});

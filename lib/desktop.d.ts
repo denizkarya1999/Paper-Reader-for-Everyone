@@ -1,9 +1,23 @@
 import type { AskPayload, AskResult, ConnectionState } from './ai-config';
 import type { FocusReply, FocusSettings } from './focus-types';
 import type { SupportPayload } from './reading-support';
+import type { SpeechState } from '../components/read-aloud';
+import type { UpdateState } from '../components/updates-panel';
 declare global {
   interface Window {
+    readerSpeech?: {
+      getState: () => SpeechState;
+      subscribe: (callback: (state: SpeechState) => void) => () => void;
+      start: (id: string, text: string) => Promise<void>;
+      stop: () => void;
+      pause: () => void;
+    };
     paperReader?: {
+      getUpdates: () => Promise<UpdateState>;
+      checkUpdates: () => Promise<UpdateState>;
+      setAutomaticUpdates: (value: boolean) => Promise<UpdateState>;
+      installUpdate: () => Promise<UpdateState>;
+      onUpdates: (callback: (state: UpdateState) => void) => () => void;
       openPdf: () => Promise<{ name: string; bytes: Uint8Array } | null>;
       savePdf: (value: { name: string; bytes: Uint8Array }) => Promise<boolean>;
       saveBundle: (value: { name: string; bytes: Uint8Array }) => Promise<boolean>;

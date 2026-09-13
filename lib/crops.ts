@@ -18,10 +18,23 @@ export function cropsSelection(crops: Crop[]): Selection | null {
 export function appendCrop(selection: Selection | null, next: Selection): Selection {
   if (next.kind !== 'area') return next;
   const crops = [...selectionCrops(selection), ...selectionCrops(next)];
+  validateCrops(crops);
+  return cropsSelection(crops)!;
+}
+
+function validateCrops(crops: Crop[]) {
   if (crops.length > MAX_CROPS) throw new Error(`You can select up to ${MAX_CROPS} crops. Remove a crop before adding another.`);
   if (crops.some(crop => (crop.image?.length ?? 0) > MAX_CROP_IMAGE_LENGTH)) throw new Error('This crop is too large. Select a smaller area.');
+  if (crops.some(crop => (crop.drawing?.source?.length ?? 0) > MAX_CROP_IMAGE_LENGTH) || crops.reduce((total, crop) => total + (crop.drawing?.source?.length ?? 0), 0) > MAX_CROP_TOTAL_LENGTH) throw new Error('The original crops are too large together. Remove a crop or select smaller areas.');
   if (crops.reduce((total, crop) => total + (crop.image?.length ?? 0), 0) > MAX_CROP_TOTAL_LENGTH) throw new Error('These crops are too large together. Remove a crop or select smaller areas.');
-  return cropsSelection(crops)!;
+}
+
+export function replaceCrop(selection: Selection, index: number, crop: Crop): Selection {
+  const crops = selectionCrops(selection);
+  if (!crops[index]) throw new Error('This crop is no longer selected.');
+  const updated = crops.map((item, i) => i === index ? crop : item);
+  validateCrops(updated);
+  return cropsSelection(updated)!;
 }
 
 export function selectionRegions(selection: Selection): { page: number; rects: Selection['rects'] }[] {

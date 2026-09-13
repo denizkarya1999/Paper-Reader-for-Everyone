@@ -10,6 +10,8 @@ permissions:
 jobs:
   linux:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,5 +26,16 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: paper-reader-for-everyone-linux-amd64
-          path: release/*.deb
+          path: |
+            release/*.deb
+            release/latest-linux.yml
           if-no-files-found: error
+      - name: Publish tagged release and update metadata
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/release-notes.mjs > release/notes.md
+          cd release
+          sha256sum *.deb > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" *.deb latest-linux.yml SHA256SUMS --title "Paper Reader for Everyone $GITHUB_REF_NAME" --notes-file notes.md --verify-tag

@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 await build();
 await bundle({ entryPoints: ['lib/ask.ts'], bundle: true, platform: 'node', target: 'node22', format: 'cjs', outfile: 'dist/ask.cjs' });
+await bundle({ entryPoints: ['electron/updates.cjs'], bundle: true, platform: 'node', target: 'node22', format: 'cjs', external: ['electron'], outfile: 'dist/updater.cjs' });
 await copyFile('node_modules/pdfjs-dist/build/pdf.worker.min.mjs', 'dist/pdf.worker.min.mjs');
 for (const folder of ['cmaps', 'standard_fonts', 'wasm']) await cp(`node_modules/pdfjs-dist/${folder}`, `dist/${folder}`, { recursive: true });
 await mkdir('assets', { recursive: true });

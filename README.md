@@ -14,12 +14,12 @@ A simple, installable Linux PDF reader. Highlight a passage or crop a figure, as
 
 ## Install on Linux
 
-Download `paper-reader-for-everyone_1.4.0-1_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
+Download `paper-reader-for-everyone_1.5.0-1_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
 
 Open it with your system's software installer, or run this command from your download folder:
 
 ```sh
-sudo apt install ./paper-reader-for-everyone_1.4.0-1_amd64.deb
+sudo apt install ./paper-reader-for-everyone_1.5.0-1_amd64.deb
 ```
 
 Launch **Paper Reader for Everyone** from your application menu.
@@ -29,7 +29,7 @@ The package targets **64-bit Intel/AMD Debian-based Linux**, including Ubuntu, D
 ## Use it
 
 1. Choose **Open PDF**, drag a PDF into the window, or try the included example.
-2. Ask about the whole paper immediately, or use **Highlight** / **Crop areas** to focus on a passage, figure, equation, table, or scanned area with the rest of the PDF as context.
+2. Ask about the whole paper immediately, or use **Highlight** / **Crop areas** / **Crop & draw** to focus on a passage, figure, equation, table, or scanned area with the rest of the PDF as context.
 3. Enter your OpenAI API key in the first-run setup, or open **Settings → ChatGPT connection** later. Choose GPT-6 Astra, GPT-5.6 Sol, Terra, or Luna, or the previous GPT-4.1 models.
 4. Type a question and press the arrow button or **Ctrl+Enter**.
 5. Choose **Pin as sticky note**. In **Notes**, edit the answer, change its color, or return to its page.
@@ -62,7 +62,7 @@ Open or drop this ZIP in Paper Reader 1.2 or later to restore the PDF and chats 
 
 ### Settings, appearance, and About Us
 
-**Settings** brings Appearance, ChatGPT connection, Focus cat, and Local data into one page. API-key replacement/removal, the remembered model, and cat controls work as before. Appearance offers **Light** and **Dark**; the theme is applied immediately and saved on this device. It covers the reader, settings, chats, sticky-note panels, and the cat’s speech bubble. PDF pages and figures keep their original colors, and exported PDFs are unaffected by the interface theme. Your reading position, selections, and draft question remain available when you return from Settings or About Us.
+**Settings** brings Appearance, ChatGPT connection, Focus cat, App updates, and Local data into one page. API-key replacement/removal, the remembered model, and cat controls work as before. Appearance offers **Light** and **Dark**; the theme is applied immediately and saved on this device. It covers the reader, settings, chats, sticky-note panels, and the cat’s speech bubble. PDF pages and figures keep their original colors, and exported PDFs are unaffected by the interface theme. Your reading position, selections, and draft question remain available when you return from Settings or About Us.
 
 **About Us**, available in the footer and Settings navigation, shows Paper Reader for Everyone, the installed version, developer **Deniz K. Acikbas**, programming languages **TypeScript, JavaScript, HTML and CSS**, and development agent **OpenAI Codex**. Version labels and PDF export metadata use the package version as their source.
 
@@ -77,6 +77,24 @@ Choose **Crop areas** and drag a rectangle around each figure, equation, table, 
 Type one question, such as “How do these figures relate?”, and choose **Ask ChatGPT** or press **Ctrl+Enter**. The app sends every selected image in order, labeled by PDF page, alongside one copy of the full PDF. Crops stay selected after sending so you can ask another question. Each question is independent and incurs normal API usage, including all attached crops and the full PDF. The app accepts up to 5 MB of encoded data per crop and 20 MB across the collection; a crop exceeding either limit is rejected without losing your existing selections.
 
 **Chats** retains every crop. **Pin as sticky note** links the answer to all selected pages, and **Save PDF** exports crop outlines and a note on each of those pages. PDF exports preserve crop locations without embedding duplicate crop images. **Save PDF + chats** also preserves all crop images in the readable transcript and structured history. Open multi-crop bundles in **version 1.4 or later**; older versions may show only the first crop. Existing single-crop chats and older bundles remain supported.
+
+### Draw on a crop
+
+Choose **Crop & draw**, then drag around the figure or writing you want to discuss. Use the **Pen**, **Highlighter**, **Arrow**, or **Circle** tool, choose an ink color and line size, and select **Use marked crop**. Undo, redo, or clear marks as needed. **Cancel** leaves the existing crop unchanged. Each crop can contain up to 100 marks; a freehand mark records up to 1,000 points. Crops are limited to 1,600 pixels on the longest edge.
+
+The crop preview and image sent to ChatGPT include your marks. Use **Draw on crop / Edit drawing** below any selected crop to revise it. Pin an answer or your own note to keep the drawing on the page. **Save PDF** exports native ink annotations with pinned notes for other PDF readers; **Save PDF + chats** also retains editable crop images and marks from saved chats. Open drawings in version **1.5 or later**. Imported PDF notes keep their vector marks; to edit an original crop image, reopen its chat from the ZIP bundle.
+
+### Read AI answers aloud
+
+Press **Read aloud** beside an answer to hear OpenAI’s natural **Marin** AI voice in **American English**. Controls appear for paper and selection answers, saved chats, notes, flashcard questions and revealed answers, focusing tips, and the cat’s quizzes. Use the shared playback bar to **Pause**, **Resume**, or **Stop**. Starting another answer stops the previous one.
+
+Speech uses the API key already configured under **Settings → ChatGPT connection** and incurs OpenAI speech API charges each time you request it. Only the text you choose to read is sent for speech; no PDF is attached to a speech request. Audio is kept in memory, not saved to disk. Long answers are read in consecutive segments; stopping prevents further segments from being requested but does not undo API usage already incurred. An internet connection and an account with access to `gpt-4o-mini-tts` are required.
+
+### Automatic updates
+
+Starting with version **1.5**, the installed Linux app checks this repository’s public GitHub releases shortly after launch and every four hours while running. A newer stable release is downloaded automatically and its checksum verified. Choose **Install and restart** when ready; Linux may ask for your administrator password. Saved PDFs, notes, chats, and connection settings remain in the same local data folder.
+
+Open **Settings → App updates** to check manually or turn automatic checking and downloading off. An already-started download may finish when the preference is turned off. The app never installs an update merely because you close it. Versions before 1.5 need one manual upgrade. Future `v*` tags run the build and tests before publishing the `.deb`, `latest-linux.yml`, and checksums used by the updater.
 
 ### Generate and study flashcards
 

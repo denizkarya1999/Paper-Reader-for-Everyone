@@ -19,6 +19,8 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'paper', privileges: { standard:
 const active = new Map();
 let mainWindow;
 let focusCat;
+let updates;
+const speech = require('./speech.cjs').createSpeechService({ getKey: () => connection.getKey(), broadcast: state => { for (const window of [mainWindow, focusCat?.getWindow()]) if (window && !window.isDestroyed()) window.webContents.send('speech:state', state); } });
 const trusted = event => event.sender === mainWindow?.webContents && event.senderFrame === mainWindow.webContents.mainFrame && event.senderFrame.url === entry;
 const assertTrusted = event => { if (!trusted(event)) throw new Error('Untrusted app request.'); };
 
@@ -27,6 +29,8 @@ else {
   app.on('second-instance', () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); } });
   app.whenReady().then(async () => {
     await connection.load();
+    updates = require('../dist/updater.cjs').createUpdater({ app, broadcast: state => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('updates:state', state); } });
+    await updates.start();
     const publicRoot = path.resolve(__dirname, '../dist');
     protocol.handle('paper', request => {
       try {
@@ -43,13 +47,15 @@ else {
     mainWindow.webContents.setWindowOpenHandler(({ url }) => { if (url === 'https://platform.openai.com/api-keys') void shell.openExternal(url); return { action: 'deny' }; });
     mainWindow.webContents.on('will-navigate', event => event.preventDefault());
     mainWindow.on('ready-to-show', () => mainWindow.show());
-    mainWindow.on('closed', () => { focusCat?.stop(); for (const controller of active.values()) controller.abort(); active.clear(); mainWindow = null; });
-    focusCat = require('./focus-cat.cjs').createFocusCat({ app, BrowserWindow, ipcMain, screen, powerMonitor, trusted, getMainWindow: () => mainWindow, cancelRequest: id => active.get(id)?.abort() });
+    mainWindow.webContents.on('did-start-navigation', (_event, _url, _inPlace, isMainFrame) => { if (isMainFrame) speech.stopOwner(mainWindow.webContents.id); });
+    mainWindow.on('closed', () => { speech.stop(); focusCat?.stop(); for (const controller of active.values()) controller.abort(); active.clear(); mainWindow = null; });
+    focusCat = require('./focus-cat.cjs').createFocusCat({ app, BrowserWindow, ipcMain, screen, powerMonitor, trusted, getMainWindow: () => mainWindow, stopSpeech: () => speech.stopOwner(focusCat?.getWindow()?.webContents.id), cancelRequest: id => active.get(id)?.abort() });
     mainWindow.webContents.once('did-finish-load', () => { void focusCat.start(); });
     void mainWindow.loadURL(entry);
   });
 }
 app.on('window-all-closed', () => app.quit());
+app.on('before-quit', () => updates?.stop());
 
 ipcMain.handle('reader:open', async event => {
   assertTrusted(event);
@@ -112,3 +118,20 @@ ipcMain.handle('reader:save-bundle', async (event, value) => {
   finally { await fs.unlink(temporary).catch(() => {}); }
   return true;
 });
+
+const speechTrusted = event => trusted(event) || focusCat?.isTrusted(event);
+for (const [channel, handler] of Object.entries({
+  'speech:start': (event, value) => speech.start(event.sender.id, value),
+  'speech:next': (event, value) => speech.next(event.sender.id, value),
+  'speech:stop': (_event, id) => speech.stop(id),
+  'speech:pause': () => speech.pause(),
+  'speech:state': () => speech.state(),
+})) ipcMain.handle(channel, (event, value) => { if (!speechTrusted(event)) throw new Error('Untrusted speech request.'); return handler(event, value); });
+ipcMain.on('speech:phase', (event, value) => { if (speechTrusted(event)) speech.phase(event.sender.id, value); });
+
+for (const [channel, handler] of Object.entries({
+  'updates:get': () => updates?.state(),
+  'updates:check': () => updates?.check(),
+  'updates:automatic': (_event, value) => updates?.setAutomatic(value),
+  'updates:install': () => { if (active.size) throw new Error('Wait for the current answer before restarting.'); speech.stop(); return updates?.install(); },
+})) ipcMain.handle(channel, (event, value) => { assertTrusted(event); return handler(event, value); });

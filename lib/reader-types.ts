@@ -1,5 +1,8 @@
 export type Rect = { x: number; y: number; width: number; height: number };
-export type Crop = { page: number; rect: Rect; image?: string };
+export type DrawingPoint = { x: number; y: number };
+export type DrawingStroke = { tool: 'pen' | 'highlighter' | 'arrow' | 'ellipse'; color: string; width: number; points: DrawingPoint[] };
+export type CropDrawing = { source?: string; width: number; height: number; strokes: DrawingStroke[] };
+export type Crop = { page: number; rect: Rect; image?: string; drawing?: CropDrawing };
 export type Selection = { page: number; kind: 'text' | 'area' | 'paper'; text: string; rects: Rect[]; image?: string; crops?: Crop[] };
 export type Note = { id: string; selection: Selection; question: string; answer: string; color: 'yellow' | 'blue' | 'pink'; createdAt: string };
 export type Paper = { id: string; name: string; bytes: Uint8Array; notes: Note[]; page: number; updatedAt: string };

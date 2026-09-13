@@ -49,7 +49,7 @@ export function responseInput(value: z.infer<typeof questionSchema>) {
       { type: 'input_text', text: wholePaper ? value.question : 'Question: ' + value.question + '\n\nSelected PDF page: ' + value.page + '\n<selection>\n' + value.text + '\n</selection>\nUse the attached whole paper to explain this selection in context.' },
       ...(!wholePaper && value.image ? [{ type: 'input_image', image_url: value.image, detail: 'high' }] : []),
       ...(!wholePaper && value.crops ? value.crops.flatMap((crop, index) => [
-        { type: 'input_text', text: `Crop ${index + 1} of ${value.crops!.length} — PDF page ${crop.page}. Consider all selected crops together when answering the question.` },
+        { type: 'input_text', text: `Crop ${index + 1} of ${value.crops!.length} — PDF page ${crop.page}. Consider all selected crops together when answering the question. Colored drawings on a crop may be user-added focus marks, not part of the original PDF.` },
         { type: 'input_image', image_url: crop.image, detail: 'high' },
       ]) : []),
     ] }],

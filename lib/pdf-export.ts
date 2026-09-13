@@ -2,12 +2,13 @@ import { APP_INFO } from './app-info';
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFString, StandardFonts, rgb, type PDFPage } from 'pdf-lib';
 import { z } from 'zod';
 import type { Note, Paper } from './reader-types';
-import { MAX_CROPS, selectionRegions } from './crops';
+import { drawingSchema, strokePaths } from './drawing';
+import { MAX_CROPS, selectionCrops, selectionRegions } from './crops';
 
 const META = PDFName.of('PaperReaderNotesV1');
 const COLORS = { yellow: [1, .84, .22], blue: [.4, .7, 1], pink: [1, .55, .7] };
 const rectSchema = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), width: z.number().positive().max(1), height: z.number().positive().max(1) });
-const noteSchema = z.object({ id: z.string().min(1).max(100), question: z.string().max(4000), answer: z.string().max(20000), color: z.enum(['yellow', 'blue', 'pink']), createdAt: z.string().datetime(), selection: z.object({ page: z.number().int().positive(), kind: z.enum(['text', 'area', 'paper']), text: z.string().max(30000), rects: z.array(rectSchema).min(1).max(500), crops: z.array(z.object({ page: z.number().int().positive(), rect: rectSchema })).min(1).max(MAX_CROPS).optional() }) });
+const noteSchema = z.object({ id: z.string().min(1).max(100), question: z.string().max(4000), answer: z.string().max(20000), color: z.enum(['yellow', 'blue', 'pink']), createdAt: z.string().datetime(), selection: z.object({ page: z.number().int().positive(), kind: z.enum(['text', 'area', 'paper']), text: z.string().max(30000), rects: z.array(rectSchema).min(1).max(500), crops: z.array(z.object({ page: z.number().int().positive(), rect: rectSchema, drawing: drawingSchema.omit({ source: true }).optional() })).min(1).max(MAX_CROPS).optional() }) });
 
 // Stored rectangles use the displayed, rotated crop box. Convert each point back
 // to PDF user space so annotations stay aligned on rotated and cropped pages.
@@ -29,8 +30,7 @@ export async function importNotes(bytes: Uint8Array): Promise<Note[]> {
     return value.success ? value.data.filter(note => note.selection.page <= doc.getPageCount() && selectionRegions(note.selection).every(region => region.page <= doc.getPageCount())) : [];
   } catch { return []; }
 }
-export async function exportPdf(paper: Paper): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(paper.bytes); const context = doc.context;
+function removeReaderAnnotations(doc: PDFDocument) {
   for (const page of doc.getPages()) {
     const annots = page.node.Annots(); if (!annots) continue;
     for (let i = annots.size() - 1; i >= 0; i--) {
@@ -39,8 +39,22 @@ export async function exportPdf(paper: Paper): Promise<Uint8Array> {
       if ((name instanceof PDFHexString || name instanceof PDFString) && name.decodeText().startsWith('paper-reader:')) annots.remove(i);
     }
   }
+}
+// The app draws editable note overlays itself. Other readers use the native
+// annotations in the exported file; other applications' annotations stay visible.
+export async function readerPdfBytes(bytes: Uint8Array): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(bytes);
+  if (!doc.catalog.has(META) || !(await importNotes(bytes)).length) return bytes;
+  removeReaderAnnotations(doc);
+  return doc.save();
+}
+export async function exportPdf(paper: Paper): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(paper.bytes); const context = doc.context;
+  removeReaderAnnotations(doc);
   const validated = z.array(noteSchema).max(5000).parse(paper.notes);
-  doc.catalog.set(META, PDFHexString.fromText(JSON.stringify(validated)));
+  const metadata = JSON.stringify(validated);
+  if (metadata.length > 10_000_000) throw new Error('These notes and drawings are too large to save in one PDF. Remove unneeded notes or marks.');
+  doc.catalog.set(META, PDFHexString.fromText(metadata));
   for (const note of validated) for (const region of selectionRegions(note.selection)) {
     const page = doc.getPage(region.page - 1); const color = COLORS[note.color];
     let annots = page.node.Annots(); if (!annots) { annots = context.obj([]) as PDFArray; page.node.set(PDFName.of('Annots'), annots); }
@@ -51,6 +65,24 @@ export async function exportPdf(paper: Paper): Promise<Uint8Array> {
       const annotation = context.obj({ Type: 'Annot', Subtype: note.selection.kind === 'text' ? 'Highlight' : 'Square', Rect: bounds, ...(note.selection.kind === 'text' ? { QuadPoints: points.flat(), CA: .35 } : { BS: { W: 1.5, S: 'D', D: [4, 3] } }), C: color, F: 4, NM: PDFString.of(`paper-reader:${note.id}:page:${region.page}:mark:${index}`) });
       annots!.push(context.register(annotation));
     });
+    for (const [cropIndex, crop] of selectionCrops(note.selection).entries()) {
+      if (crop.page !== region.page || !crop.drawing) continue;
+      const drawing = crop.drawing;
+      const topLeft = pdfPoint(page, crop.rect.x, crop.rect.y);
+      const topRight = pdfPoint(page, crop.rect.x + crop.rect.width, crop.rect.y);
+      const bottomRight = pdfPoint(page, crop.rect.x + crop.rect.width, crop.rect.y + crop.rect.height);
+      const bounds = [Math.min(topLeft[0], bottomRight[0]), Math.min(topLeft[1], bottomRight[1]), Math.max(topLeft[0], bottomRight[0]), Math.max(topLeft[1], bottomRight[1])];
+      for (const [strokeIndex, stroke] of drawing.strokes.entries()) {
+        const paths = strokePaths(stroke, drawing.width, drawing.height).map(points => points.map(point => pdfPoint(page, crop.rect.x + point.x / drawing.width * crop.rect.width, crop.rect.y + point.y / drawing.height * crop.rect.height)));
+        const color = [1, 3, 5].map(start => parseInt(stroke.color.slice(start, start + 2), 16) / 255);
+        const width = stroke.width * Math.hypot(topRight[0] - topLeft[0], topRight[1] - topLeft[1]);
+        const opacity = stroke.tool === 'highlighter' ? .3 : 1;
+        const commands = ['q', '/GS gs', color.join(' ') + ' RG', width + ' w', '1 J 1 j', ...paths.flatMap(points => [points[0].join(' ') + ' m', ...points.slice(1).map(point => point.join(' ') + ' l')]), 'S', 'Q'].join('\n');
+        const appearance = context.flateStream(commands, { Type: 'XObject', Subtype: 'Form', BBox: bounds, Resources: { ExtGState: { GS: { Type: 'ExtGState', CA: opacity, ca: opacity } } } });
+        const ink = context.obj({ Type: 'Annot', Subtype: 'Ink', Rect: bounds, InkList: paths.map(points => points.flat()), C: color, CA: opacity, BS: { W: width }, F: 4, AP: { N: context.register(appearance) }, NM: PDFString.of(`paper-reader:${note.id}:crop:${cropIndex}:stroke:${strokeIndex}`) });
+        annots.push(context.register(ink));
+      }
+    }
     const rect = region.rects[0]; const [x, y] = pdfPoint(page, Math.min(.94, rect.x + rect.width), rect.y);
     const body = note.question ? `Question: ${note.question}\n\n${note.answer}` : note.answer;
     const sticky = context.obj({ Type: 'Annot', Subtype: 'Text', Rect: [x, y - 20, x + 20, y], Contents: PDFHexString.fromText(body), T: PDFHexString.fromText('Paper Reader for Everyone'), Subj: PDFHexString.fromText(note.selection.kind === 'paper' ? 'Whole-paper note' : `Page ${region.page} note`), C: color, Name: 'Comment', Open: false, F: 4, NM: PDFString.of(`paper-reader:${note.id}:page:${region.page}:note`) });

@@ -1,6 +1,6 @@
 {
   "name": "paper-reader-for-everyone",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "A Linux PDF reader with ChatGPT, flashcards, reading support, saved chats, sticky notes, themes, and a focus cat.",
   "author": {
     "name": "Deniz K. Acikbas"
@@ -37,9 +37,10 @@
     "test": "node --test tests/*.test.mjs",
     "package:deb": "npm run build && electron-builder --linux deb --x64 --publish never",
     "package:dir": "npm run build && electron-builder --linux dir --x64 --publish never",
-    "test:ui": "node --test tests/*.e2e.mjs"
+    "test:ui": "node --test --test-concurrency=1 tests/*.e2e.mjs"
   },
   "dependencies": {
+    "electron-updater": "^6.6.2",
     "fflate": "^0.8.3",
     "lucide-react": "^1.31.0",
     "pdf-lib": "^1.17.1",
@@ -106,7 +107,12 @@
       ]
     },
     "artifactName": "paper-reader-for-everyone_${version}-1_${arch}.${ext}",
-    "buildNumber": "1"
+    "buildNumber": "1",
+    "publish": {
+      "provider": "github",
+      "owner": "denizkarya1999",
+      "repo": "Paper-Reader-for-Everyone"
+    }
   },
   "desktopName": "paper-reader-for-everyone.desktop"
 }

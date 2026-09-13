@@ -2,7 +2,7 @@ const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { createFocusStore, reminderDelay } = require('./focus-settings.cjs');
 
-function createFocusCat({ app, BrowserWindow, ipcMain, screen, powerMonitor, trusted, getMainWindow, cancelRequest }) {
+function createFocusCat({ app, BrowserWindow, ipcMain, screen, powerMonitor, trusted, getMainWindow, cancelRequest, stopSpeech = () => {} }) {
   const store = createFocusStore(app.getPath('userData'));
   const entry = 'paper://reader/cat.html';
   let cat, timer, walking, token = null, message = null, direction = 1, context = null, stopped = false, suspended = false, hovering = false;
@@ -25,7 +25,7 @@ function createFocusCat({ app, BrowserWindow, ipcMain, screen, powerMonitor, tru
     const delay = reminderDelay(store.get());
     if (!stopped && !suspended && delay !== null && !message) timer = setTimeout(remind, delay);
   }
-  function dismiss() { cancel(); message = null; bounds(); send(); schedule(); }
+  function dismiss() { stopSpeech(); cancel(); message = null; bounds(); send(); schedule(); }
   function remind() {
     if (!cat || !store.get().enabled || message || suspended) return;
     clearTimeout(timer);
@@ -37,7 +37,7 @@ function createFocusCat({ app, BrowserWindow, ipcMain, screen, powerMonitor, tru
     bounds(); send(); cat.showInactive();
   }
   function apply() {
-    cancel(); message = null; clearTimeout(timer); clearInterval(walking);
+    stopSpeech(); cancel(); message = null; clearTimeout(timer); clearInterval(walking);
     if (!store.get().enabled || stopped) { if (cat) { cat.destroy(); cat = null; } return; }
     if (!cat) {
       const area = screen.getDisplayMatching(getMainWindow().getBounds()).workArea;
@@ -79,6 +79,6 @@ function createFocusCat({ app, BrowserWindow, ipcMain, screen, powerMonitor, tru
   screen.on('display-metrics-changed', bounds); screen.on('display-removed', bounds);
   powerMonitor.on('suspend', () => { suspended = true; dismiss(); if (cat) cat.hide(); });
   powerMonitor.on('resume', () => { suspended = false; if (cat) cat.showInactive(); schedule(); });
-  return { async start() { await store.load(); apply(); }, stop() { stopped = true; clearTimeout(timer); clearInterval(walking); cancel(); if (cat) { cat.destroy(); cat = null; } } };
+  return { isTrusted: catTrusted, getWindow: () => cat, async start() { await store.load(); apply(); }, stop() { stopSpeech(); stopped = true; clearTimeout(timer); clearInterval(walking); cancel(); if (cat) { cat.destroy(); cat = null; } } };
 }
 module.exports = { createFocusCat };

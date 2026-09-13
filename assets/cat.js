@@ -13,6 +13,7 @@ window.focusCat?.onState(state => {
     byId('answer').textContent = message.answer || '';
     if (JSON.stringify(message) !== lastMessage) { byId('answer').hidden = true; byId('reveal').hidden = !message.answer; }
     lastMessage = JSON.stringify(message);
+    byId('speak').disabled = !!message.loading || !!message.error;
   } else lastMessage = null;
 });
 for (const [id, action] of Object.entries({ cat: 'remind', close: 'dismiss', done: 'dismiss', disable: 'disable', reader: 'reader' })) byId(id).addEventListener('click', () => window.focusCat?.action(action));
@@ -20,3 +21,14 @@ byId('cat').addEventListener('mouseenter', () => window.focusCat?.action('pause'
 byId('cat').addEventListener('mouseleave', () => window.focusCat?.action('walk'));
 byId('reveal').addEventListener('click', () => { byId('answer').hidden = false; byId('reveal').hidden = true; });
 window.focusCat?.ready();
+
+byId('speak').addEventListener('click', () => {
+  const state = window.readerSpeech?.getState();
+  if (state?.id === 'cat-quiz' && ['loading', 'playing', 'paused'].includes(state.status)) window.readerSpeech.stop();
+  else void window.readerSpeech?.start('cat-quiz', byId('question').textContent + (byId('answer').hidden ? '' : '\n\n' + byId('answer').textContent));
+});
+window.readerSpeech?.subscribe(state => {
+  const active = state.id === 'cat-quiz' && ['loading', 'playing', 'paused'].includes(state.status);
+  byId('speak').textContent = active ? 'Stop reading' : 'Read aloud';
+  byId('speech-status').textContent = state.id === 'cat-quiz' && state.status === 'error' ? state.error : active ? 'AI voice · English (US)' : '';
+});

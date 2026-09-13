@@ -2,6 +2,7 @@ import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
 import { z } from 'zod';
 import { exportPdf, importNotes } from './pdf-export';
 import type { Chat, Paper } from './reader-types';
+import { drawingSchema } from './drawing';
 import { flashcardSchema, MAX_FLASHCARDS } from './flashcards';
 import { MAX_CROPS, MAX_CROP_IMAGE_LENGTH, MAX_CROP_TOTAL_LENGTH, selectionCrops, selectionLabel, selectionRegions } from './crops';
 
@@ -14,7 +15,7 @@ const chatSchema = z.object({
   model: z.string().max(100), createdAt: z.string().datetime(),
   status: z.enum(['pending', 'completed', 'error', 'cancelled', 'interrupted']), error: z.string().max(4000).optional(),
   flashcards: z.array(flashcardSchema).max(MAX_FLASHCARDS).optional(), flashcardCount: z.number().int().min(1).max(MAX_FLASHCARDS).optional(),
-  selection: z.object({ page: z.number().int().positive().max(100000), kind: z.enum(['text', 'area', 'paper']), text: z.string().max(30000), rects: z.array(rect).min(1).max(500), image: cropImage.optional(), crops: z.array(z.object({ page: z.number().int().positive().max(100000), rect, image: cropImage.optional() })).min(1).max(MAX_CROPS).optional() }).refine(selection => !selection.crops || (selection.kind === 'area' && !selection.image && selection.crops.reduce((total, crop) => total + (crop.image?.length ?? 0), 0) <= MAX_CROP_TOTAL_LENGTH)),
+  selection: z.object({ page: z.number().int().positive().max(100000), kind: z.enum(['text', 'area', 'paper']), text: z.string().max(30000), rects: z.array(rect).min(1).max(500), image: cropImage.optional(), crops: z.array(z.object({ page: z.number().int().positive().max(100000), rect, image: cropImage.optional(), drawing: drawingSchema.optional() })).min(1).max(MAX_CROPS).optional() }).refine(selection => !selection.crops || (selection.kind === 'area' && !selection.image && selection.crops.reduce((total, crop) => total + (crop.image?.length ?? 0), 0) <= MAX_CROP_TOTAL_LENGTH && selection.crops.reduce((total, crop) => total + (crop.drawing?.source?.length ?? 0), 0) <= MAX_CROP_TOTAL_LENGTH)),
 });
 const historySchema = z.object({
   format: z.literal('paper-reader-bundle'), version: z.literal(1), pdfFile: z.literal('paper.pdf'),
@@ -35,7 +36,7 @@ export async function exportBundle(paper: Paper, chats: Chat[]): Promise<Uint8Ar
     'paper.pdf': pdf,
     'chat-history.json': json,
     'chat-history.html': html,
-    'README.txt': strToU8('Paper Reader for Everyone\n\npaper.pdf: annotated PDF with your sticky notes.\nchat-history.html: readable chat history; open in a browser.\nchat-history.json: chat data for restoring inside Paper Reader.\n\nOpen this ZIP in Paper Reader for Everyone 1.4 or later to restore the PDF and chats with all crops. Older versions may show only the first crop. No API key is included.\n'),
+    'README.txt': strToU8('Paper Reader for Everyone\n\npaper.pdf: annotated PDF with your sticky notes.\nchat-history.html: readable chat history; open in a browser.\nchat-history.json: chat data for restoring inside Paper Reader.\n\nOpen this ZIP in Paper Reader for Everyone 1.5 or later to restore the PDF, chats, and editable crop drawings. Older versions may show only the first crop. No API key is included.\n'),
   }, { level: 6 });
   if (bytes.length > MAX_BUNDLE_BYTES) throw new Error('This bundle exceeds the 200 MB limit.');
   return bytes;

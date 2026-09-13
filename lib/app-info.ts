@@ -9,4 +9,4 @@ export const APP_INFO = {
   technologies: 'Electron, React, PDF.js and pdf-lib',
 };
 export type Theme = 'light' | 'dark';
-export type SettingsTab = 'appearance' | 'connection' | 'cat' | 'storage';
+export type SettingsTab = 'appearance' | 'connection' | 'cat' | 'storage' | 'updates';

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.0 — 2026-09-13
+
+- Add **Crop & draw**, with a pen, translucent highlighter, arrows, circles, four ink colors, adjustable line sizes, undo, redo, and clear.
+- Send marked crops to ChatGPT alongside the complete PDF. Keep editable drawings in saved chats and ZIP bundles, and export native drawing annotations with pinned PDF notes.
+- Add **Read aloud** for AI answers, saved chats, notes, flashcards, focusing tips, and focus-cat quizzes, using OpenAI’s natural Marin voice with an American English accent.
+- Include pause, resume, and stop controls shared across the reader and cat. Read long answers in ordered segments; starting another answer cancels previous playback.
+- Use the existing OpenAI API connection for speech only when requested. Spoken text uses API credits; audio stays in memory.
+- Automatically check GitHub releases at startup and every four hours, download and verify Linux updates, and offer **Install and restart**. Change this preference or check manually in **Settings → App updates**.
+- Publish future tagged Linux releases with updater metadata after automated checks pass.
+- Preserve existing libraries, notes, chat histories, connection settings, and older single/multiple-crop bundles.
+
 ## 1.4.0 — 2026-09-12
 
 - Collect up to 10 numbered crops from the same PDF across pages and zoom levels, with previews, page links, individual removal, and clear-all.

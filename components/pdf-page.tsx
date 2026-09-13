@@ -4,6 +4,7 @@ import type { PDFDocumentProxy, RenderTask, TextLayer } from 'pdfjs-dist';
 import type { Note, Rect, Selection } from '@/lib/reader-types';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import { selectionCrops, selectionRegions } from '@/lib/crops';
+import DrawingOverlay from './drawing-overlay';
 
 type Props = { bytes: Uint8Array; pageNumber: number; zoom: number; mode: 'text' | 'area'; notes: Note[]; selection: Selection | null; activeNote: string | null; onSelect: (s: Selection) => void; onNote: (id: string) => void; onCount: (n: number) => void; onError: (s: string) => void };
 const clamp = (n: number) => Math.max(0, Math.min(1, n));
@@ -32,7 +33,10 @@ export default function PdfPage({ bytes, pageNumber, zoom, mode, notes, selectio
       if (stopped) return;
       pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdf.worker.min.mjs', window.location.href).href;
       const base = new URL('.', window.location.href).href;
-      task = pdfjs.getDocument({ data: bytes.slice(), cMapUrl: `${base}cmaps/`, cMapPacked: true, standardFontDataUrl: `${base}standard_fonts/`, wasmUrl: `${base}wasm/` });
+      const { readerPdfBytes } = await import('@/lib/pdf-export');
+      const displayBytes = await readerPdfBytes(bytes);
+      if (stopped) return;
+      task = pdfjs.getDocument({ data: displayBytes.slice(), cMapUrl: `${base}cmaps/`, cMapPacked: true, standardFontDataUrl: `${base}standard_fonts/`, wasmUrl: `${base}wasm/` });
       const loaded = await task.promise;
       if (!stopped) { setDoc(loaded); callbacks.current.onCount(loaded.numPages); }
     }).catch(error => { if (!stopped) callbacks.current.onError(/password/i.test(error.message) ? 'This PDF needs a password. Please choose an unlocked copy.' : 'This PDF could not be displayed. Try opening another file.'); });
@@ -108,6 +112,7 @@ export default function PdfPage({ bytes, pageNumber, zoom, mode, notes, selectio
         </div>;
       }))}
       {selection?.kind === 'area' ? selectionCrops(selection).map((item, i) => item.page === pageNumber && <span key={`selection-${i}`} className="highlight current-selection area-highlight" style={position(item.rect)}><span className="crop-number">{i + 1}</span></span>) : selection?.page === pageNumber && selection.rects.map((r, i) => <span key={`selection-${i}`} className="highlight current-selection" style={position(r)}/>)}
+      {Array.from(new Map([...notes.flatMap(note => selectionCrops(note.selection)), ...selectionCrops(selection)].filter(crop => crop.page === pageNumber && crop.drawing).map(crop => [JSON.stringify([crop.rect, crop.drawing?.width, crop.drawing?.height, crop.drawing?.strokes]), crop])).values()).map((crop, i) => <DrawingOverlay key={`selected-drawing-${i}`} crop={crop}/>)}
     </div>
     {mode === 'area' && <div className="crop-layer" role="img" aria-label="Drag to crop an area" onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={() => { start.current = null; setCrop(null); }} onLostPointerCapture={() => { start.current = null; setCrop(null); }}>{crop && <span className="crop-box" style={position(crop)}/>}</div>}
     {!rendered && <div className="page-loading" role="status"><LoaderCircle className="spin" size={22}/>Opening page…</div>}
