@@ -23,7 +23,7 @@ The package targets **64-bit Intel/AMD Debian-based Linux**, including Ubuntu, D
 ## Use it
 
 1. Choose **Open PDF**, drag a PDF into the window, or try the included example.
-2. Use **Highlight** to select text, or **Crop area** to select a figure, equation, table, or scanned passage.
+2. Ask about the whole paper immediately, or use **Highlight** / **Crop area** to focus on a passage, figure, equation, table, or scanned area with the rest of the PDF as context.
 3. Enter your OpenAI API key in the first-run setup, or open **Settings → ChatGPT connection** later. Choose GPT-6 Astra, GPT-5.6 Sol, Terra, or Luna, or the previous GPT-4.1 models.
 4. Type a question and press the arrow button or **Ctrl+Enter**.
 5. Choose **Pin as sticky note**. In **Notes**, edit the answer, change its color, or return to its page.
@@ -37,7 +37,7 @@ The package targets **64-bit Intel/AMD Debian-based Linux**, including Ubuntu, D
 
 Choose **Summarize paper** above the PDF, or **Whole paper** in the question panel. Then choose **Summarize whole paper** to request the main question, approach, findings, limitations, and takeaway with PDF page references. You can also enter your own question about the complete document.
 
-The app sends the complete original PDF directly to OpenAI for these requests, including page images, figures, tables, scanned pages, and any annotations or metadata already in that file. It does not silently truncate to an abstract or a few pages. Newly added local notes are not included unless they were exported into the PDF you opened. Whole-paper requests require files smaller than 50 MB (50,000,000 bytes), can cost more than selection requests, and allow up to five minutes before timing out. Model context limits still apply; very long documents may need to be split. Cancel stops waiting for the response but does not undo content already sent or guarantee that OpenAI stops processing it.
+The app sends the complete original PDF directly to OpenAI for these requests, including page images, figures, tables, scanned pages, and any annotations or metadata already in that file. It does not silently truncate to an abstract or a few pages. Newly added local notes are not included unless they were exported into the PDF you opened. Whole-paper requests require files smaller than 50 MB (50,000,000 bytes), can cost more than excerpt-only requests in older versions, and allow up to five minutes before timing out. Model context limits still apply; very long documents may need to be split. Cancel stops waiting for the response but does not undo content already sent or guarantee that OpenAI stops processing it.
 
 Choose **Save as note on page 1** to keep a summary. It appears as a whole-paper note and is included in annotated PDF exports, with no artificial highlight. Reopen exports in version 1.1 or later to edit these notes.
 
@@ -59,6 +59,10 @@ Open or drop this ZIP in Paper Reader 1.2 or later to restore the PDF and chats 
 **Settings** brings Appearance, ChatGPT connection, Focus cat, and Local data into one page. API-key replacement/removal, the remembered model, and cat controls work as before. Appearance offers **Light** and **Dark**; the theme is applied immediately and saved on this device. It covers the reader, settings, chats, sticky-note panels, and the cat’s speech bubble. PDF pages and figures keep their original colors, and exported PDFs are unaffected by the interface theme. Your reading position, selections, and draft question remain available when you return from Settings or About Us.
 
 **About Us**, available in the footer and Settings navigation, shows Paper Reader for Everyone, the installed version, developer **Deniz K. Acikbas**, programming languages **TypeScript, JavaScript, HTML and CSS**, and development agent **OpenAI Codex**. Version labels and PDF export metadata use the package version as their source.
+
+### Ask with whole-paper context
+
+Opening a PDF makes the question box ready immediately. Ask any question in **Whole paper**, or choose **Summarize whole paper**. Highlight text or crop an area to focus a question: the full PDF is attached alongside the selection, so ChatGPT can use definitions, methods, results, figures, and limitations from elsewhere in the paper. Supporting PDF page references are requested. Use **Whole paper** or clear the selection to return to general questions; your draft question is preserved. Each question is independent of previous chat answers. If the PDF exceeds a model’s context limit, use a shorter PDF or another model.
 
 ### Generate and study flashcards
 
@@ -87,8 +91,8 @@ You can also use **Write a note** to add your own note without ChatGPT. Reading,
 ## Local files and privacy
 
 - PDFs, notes, and chat history are saved automatically in the app's local IndexedDB library, under your system's application-data directory (`~/.config/paper-reader-for-everyone` on most Linux systems).
-- The app has no sign-in, cloud library, or analytics. Document uploads occur when you ask ChatGPT generate flashcards, or enable timed PDF quizzes.
-- In **Selection** mode, only the selected text or cropped image, the page number, and your question are sent to OpenAI. In **Whole paper** mode, the complete original PDF and your question are sent. The interface identifies the active scope before you send.
+- The app has no sign-in, cloud library, or analytics. Document uploads occur when you ask ChatGPT a question, generate flashcards, or enable timed PDF quizzes.
+- Every question sends the complete PDF to OpenAI for context. **Selection** adds the highlighted passage or cropped image and its page number, focusing the answer on that area while connecting it to relevant material elsewhere. **Whole paper** asks about the document without a selection and is selected automatically when you open a PDF or clear a selection. The interface explains what is sent; full-PDF requests can take longer and cost more than excerpt-only questions.
 - First-run setup asks for your OpenAI API key. **Remember my key on this device** is enabled by default when secure storage is available. The key is encrypted using Electron safeStorage and the Linux system keyring, saved in an owner-only (0600) connection file, and loaded automatically on later launches. Your selected model is also remembered.
 - **Connection** lets you replace the key, change models, or **Remove key**. Leave the replacement field blank to keep the existing key. The decrypted saved key remains in the desktop main process; it is not returned to the PDF interface, saved in the PDF library, or exported with a PDF.
 - GNOME Keyring or KWallet must be available and unlocked to remember keys. LXQt/LXDE use the Secret Service backend explicitly. The app refuses Electron's unprotected Linux fallback; when secure storage is unavailable, setup offers session-only use and explains how to enable persistence. Choosing session-only use removes any previously saved key. A locked or damaged saved connection can be replaced or removed without affecting PDFs and notes.
@@ -101,7 +105,7 @@ You can also use **Write a note** to add your own note without ChatGPT. Reading,
 
 Exports retain the original pages and add standard PDF highlight, square, text-note, and popup annotations. Readers such as Okular or Adobe Acrobat can open the sticky-note comments; some browser PDF viewers do not display every annotation type. The app also embeds its own note metadata so exported files can be reopened here for continued editing without duplicating notes.
 
-This version supports PDFs up to **50 MB**. Open an unlocked copy of password-protected files. Text selection requires a text layer; use a crop for scanned pages. AI answers use the active scope: the selected passage or crop, or the complete PDF in Whole paper mode. Check answers against the source. Exporting modifies a copy of the PDF and does not preserve cryptographic signature validity. Existing annotations from other readers are preserved but are not editable in this app's Notes panel.
+This version supports PDFs up to **50 MB**. Open an unlocked copy of password-protected files. Text selection requires a text layer; use a crop for scanned pages. AI answers always use the complete PDF; selections focus the question on a passage or crop within that context. Check answers against the source. Exporting modifies a copy of the PDF and does not preserve cryptographic signature validity. Existing annotations from other readers are preserved but are not editable in this app's Notes panel.
 
 ## Build from source
 

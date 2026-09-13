@@ -10,13 +10,14 @@ import { PDFDocument, PDFName, PDFDict, PDFString, PDFHexString, degrees } from 
 const temporary = await mkdtemp(path.join(tmpdir(), 'paper-reader-test-'));
 await build({ entryPoints: ['lib/pdf-export.ts', 'lib/ask.ts'], bundle: true, platform: 'node', format: 'esm', outdir: temporary });
 const { exportPdf, importNotes, examplePdf, pdfPoint } = await import(pathToFileURL(path.join(temporary, 'pdf-export.js')));
-const { askHandler } = await import(pathToFileURL(path.join(temporary, 'ask.js')));
+const { askHandler, questionSchema, MAX_REQUEST_BYTES } = await import(pathToFileURL(path.join(temporary, 'ask.js')));
 test.after(() => rm(temporary, { recursive: true, force: true }));
 
 const note = { id: 'fixture-note', selection: { page: 1, kind: 'text', text: 'A correlation is not proof of causation.', rects: [{ x: .1, y: .3, width: .6, height: .03 }] }, question: 'What does this mean?', answer: 'It does not establish cause. Türkçe: ilişki, neden değildir. 日本語 ✓', color: 'yellow', createdAt: '2026-09-12T12:00:00.000Z' };
 const paper = async (notes = [note]) => ({ id: 'test', name: 'source.pdf', bytes: await examplePdf(), notes, page: 1, updatedAt: note.createdAt });
 const request = (body, headers = {}) => new Request('https://paper-reader.local/ask', { method: 'POST', headers: { 'content-type': 'application/json', 'x-openai-key': 'sk-test-placeholder', ...headers }, body: JSON.stringify(body) });
-const body = { question: 'Explain this', text: 'Selected passage', page: 1, model: 'gpt-4.1-mini' };
+const fullPdf = { filename: 'complete-paper.pdf', data: 'data:application/pdf;base64,' + Buffer.from(await examplePdf()).toString('base64') };
+const body = { pdf: fullPdf, question: 'Explain this', text: 'Selected passage', page: 1, model: 'gpt-4.1-mini' };
 
 test('PDF export retains all pages and native sticky notes with Unicode content', async () => {
   const bytes = await exportPdf(await paper());
@@ -63,19 +64,25 @@ test('invalid embedded note metadata is ignored safely', async () => {
   doc.catalog.set(PDFName.of('PaperReaderNotesV1'), PDFHexString.fromText(JSON.stringify([{ ...note, selection: { ...note.selection, page: 999 } }])));
   assert.deepEqual(await importNotes(await doc.save()), []);
 });
-test('ChatGPT receives only selected content, no PDF or retained server response', async () => {
+test('selected text receives the entire PDF and instructions to connect it to other pages', async () => {
   let sent;
   const result = await askHandler(request(body), async (url, options) => {
     assert.equal(url, 'https://api.openai.com/v1/responses'); sent = JSON.parse(options.body);
     return Response.json({ status: 'completed', output: [{ type: 'reasoning' }, { type: 'message', content: [{ type: 'output_text', text: 'A clear answer.' }] }] });
   });
   assert.equal((await result.json()).answer, 'A clear answer.');
-  assert.equal(sent.store, false); assert.match(sent.input[0].content[0].text, /Selected passage/);
-  assert.equal(sent.input[0].content.length, 1); assert.match(sent.instructions, /untrusted/);
+  assert.equal(sent.store, false); assert.equal(sent.input[0].content[0].file_data, fullPdf.data);
+  assert.match(sent.input[0].content[1].text, /Selected passage/);
+  assert.match(sent.input[0].content[1].text, /Selected PDF page: 1/);
+  assert.equal(sent.input[0].content.length, 2); assert.match(sent.instructions, /untrusted/);
+  assert.match(sent.instructions, /using the whole paper as context/); assert.match(sent.instructions, /other supporting pages/);
+  assert.doesNotMatch(sent.instructions, /only the supplied PDF selection|Do not claim to have read the full document/);
 });
-test('crop request includes the image in the OpenAI input', async () => {
+test('cropped-area request includes both the full PDF and the exact crop', async () => {
   const result = await askHandler(request({ ...body, text: '', image: 'data:image/png;base64,YWJj' }), async (_url, options) => {
-    const value = JSON.parse(options.body); assert.equal(value.input[0].content[1].type, 'input_image');
+    const value = JSON.parse(options.body); assert.equal(value.input[0].content[0].file_data, fullPdf.data);
+    assert.equal(value.input[0].content[2].type, 'input_image'); assert.equal(value.input[0].content[2].image_url, 'data:image/png;base64,YWJj');
+    assert.match(value.instructions, /cropped area, using the whole paper/);
     return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'Chart explanation' }] }] });
   }); assert.equal(result.status, 200);
 });
@@ -143,7 +150,7 @@ test('whole-paper notes survive export, edits, and deletion without adding a fal
   const deleted = await exportPdf({ ...source, bytes: resaved, notes: [] });
   assert.deepEqual(await importNotes(deleted), []);
 });
-test('invalid PDFs and attempts to attach PDFs to selection requests never reach OpenAI', async () => {
+test('missing or invalid full PDFs and mixed question scopes never reach OpenAI', async () => {
   const fetcher = () => assert.fail('Must not contact OpenAI');
   const pdf = { filename: 'paper.pdf', data: 'data:application/pdf;base64,' + Buffer.from('%PDF-1.7\n%%EOF').toString('base64') };
   const whole = { scope: 'paper', question: 'Summarize', model: 'gpt-6-astra', pdf };
@@ -153,13 +160,13 @@ test('invalid PDFs and attempts to attach PDFs to selection requests never reach
     { ...whole, pdf: { ...pdf, data: 'data:application/pdf;base64,YWJj' } },
     { ...whole, pdf: { ...pdf, filename: 'paper.txt' } },
     { ...whole, pdf: { ...pdf, data: pdf.data + '===' } },
-    { ...body, pdf },
-    { ...body, scope: 'selection', pdf },
+    { ...body, scope: 'selection', pdf: undefined },
+    { ...body, pdf: { ...pdf, data: 'https://example.com/private.pdf' } },
     { ...whole, text: 'Hidden selection' },
   ]) assert.equal((await askHandler(request(invalid), fetcher)).status, 400);
 });
 test('oversized PDF bodies are rejected before contacting OpenAI', async () => {
-  const large = new Request('https://paper-reader.local/ask', { method: 'POST', headers: { 'content-type': 'application/json', 'x-openai-key': 'sk-test-placeholder' }, body: 'x'.repeat(67_000_000) });
+  const large = new Request('https://paper-reader.local/ask', { method: 'POST', headers: { 'content-type': 'application/json', 'x-openai-key': 'sk-test-placeholder' }, body: 'x'.repeat(MAX_REQUEST_BYTES + 1) });
   const result = await askHandler(large, () => assert.fail('Must not contact OpenAI'));
   assert.equal(result.status, 413);
 });
@@ -178,4 +185,26 @@ test('cancellation reaches the OpenAI request and is reported as cancelled', asy
     controller.abort(); assert.equal(options.signal.aborted, true); throw new Error('aborted');
   });
   assert.match((await result.json()).error, /cancelled/);
+});
+
+
+test('general paper questions need no selection and preserve the user question', async () => {
+  const question = 'How do the methods support the main findings?';
+  const result = await askHandler(request({ scope: 'paper', question, model: 'gpt-6-astra', pdf: fullPdf }), async (_url, options) => {
+    const sent = JSON.parse(options.body);
+    assert.equal(sent.input[0].content.length, 2);
+    assert.equal(sent.input[0].content[0].file_data, fullPdf.data);
+    assert.equal(sent.input[0].content[1].text, question);
+    assert.match(sent.instructions, /Answer the user question using the whole paper/);
+    return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'The methods support the findings on PDF page 2.' }] }] });
+  });
+  assert.match((await result.json()).answer, /PDF page 2/);
+});
+
+test('request allowance fits a maximum PDF, crop and escaped question without truncating context', () => {
+  const raw = Buffer.alloc(49_999_999); raw.write('%PDF-1.7');
+  const input = { ...body, pdf: { filename: 'large.pdf', data: 'data:application/pdf;base64,' + raw.toString('base64') }, image: 'data:image/png;base64,' + 'a'.repeat(4_999_976), text: '\u0001'.repeat(30_000), question: '\u0001'.repeat(4000) };
+  assert.equal(questionSchema.safeParse(input).success, true);
+  assert.ok(Buffer.byteLength(JSON.stringify(input)) <= MAX_REQUEST_BYTES);
+  assert.equal(questionSchema.safeParse({ ...input, image: input.image + 'aaaa' }).success, false);
 });

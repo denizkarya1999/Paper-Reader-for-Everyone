@@ -2,6 +2,9 @@
 
 ## 1.3 — 2026-09-12
 
+- Include the complete PDF with highlighted text and cropped-area questions, connecting answers to relevant material elsewhere with requested page references.
+- Start in Whole paper mode with a ready question box; no selection is needed, and clearing a selection returns to general questions.
+
 - Add an About Us page showing the app name, package version, developer, programming languages, and OpenAI Codex development credit.
 - Add a Settings page combining appearance, ChatGPT connection, focus-cat preferences, and local-data controls.
 - Add persistent light and dark modes, including the cat’s reminder bubble, while preserving original PDF colors.

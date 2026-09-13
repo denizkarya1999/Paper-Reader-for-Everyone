@@ -11,9 +11,9 @@ export const DEFAULT_MODEL = 'gpt-5.6-luna';
 // Stay below the API's 50 MB file limit, measured before Base64 encoding.
 export const MAX_PAPER_BYTES = 50_000_000 - 1;
 export const SUMMARY_QUESTION = 'Summarize the whole paper in plain language. Cover its main question, approach, key findings, limitations, and practical takeaway. Include PDF page references for the main findings.';
-export type AskPayload = { question: string; model: string } & (
+export type AskPayload = { question: string; model: string; pdf: { filename: string; data: string } } & (
   { scope: 'selection'; text: string; image?: string; page: number } |
-  { scope: 'paper'; pdf: { filename: string; data: string } }
+  { scope: 'paper' }
 );
 export type AskResult = { answer?: string; error?: string; incomplete?: boolean };
 export type ConnectionState = { hasKey: boolean; saved: boolean; model: string; canRemember: boolean; error?: string };
