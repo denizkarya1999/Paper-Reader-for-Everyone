@@ -88,3 +88,26 @@ test('shared playback supports pause/resume, finishes all chunks, and stops when
   update({ id: 'cat', status: 'loading', part: 1, total: 1 });
   assert.equal(audios.at(-1).paused, true); assert.equal(audios.at(-1).onended, null);
 });
+
+test('scanned-page reading recognizes only the requested image before speaking, and rejects incomplete text', async () => {
+  const image = 'data:image/png;base64,AAAA'; const calls = [];
+  const { service } = fixture(async (url, options) => {
+    calls.push({ url, body: JSON.parse(options.body) });
+    if (url.endsWith('/responses')) return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'Recognized page text.' }] }] });
+    return audio();
+  });
+  service.start(1, { id: 'page1', text: '', image, label: 'PDF page 1' });
+  assert.equal(calls.length, 0); await service.next(1, 'page1');
+  assert.equal(calls.length, 2); assert.equal(calls[0].body.input[0].content[0].image_url, image);
+  assert.equal(calls[0].body.store, false); assert.equal(calls[1].body.input, 'Recognized page text.');
+  assert.equal(service.state().label, 'PDF page 1');
+  const incomplete = fixture(async () => Response.json({ status: 'incomplete' })).service;
+  incomplete.start(1, { id: 'page1', text: '', image }); await incomplete.next(1, 'page1');
+  assert.equal(incomplete.state().status, 'error'); assert.match(incomplete.state().error, /completely/);
+});
+test('stopping scanned-page recognition prevents late results from starting speech', async () => {
+  let finish, calls = 0;
+  const { service } = fixture(async () => { calls++; await new Promise(resolve => { finish = resolve; }); return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'Late text.' }] }] }); });
+  service.start(1, { id: 'page', text: '', image: 'data:image/png;base64,AAAA' }); const pending = service.next(1, 'page');
+  service.stop(); finish(); assert.equal(await pending, null); assert.equal(calls, 1); assert.equal(service.state().status, 'idle');
+});

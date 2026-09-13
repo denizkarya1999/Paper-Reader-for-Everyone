@@ -1,6 +1,6 @@
 {
   "name": "paper-reader-for-everyone",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "A Linux PDF reader with ChatGPT, flashcards, reading support, saved chats, sticky notes, themes, and a focus cat.",
   "author": {
     "name": "Deniz K. Acikbas"

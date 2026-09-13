@@ -4,6 +4,7 @@ import { _electron, expect } from '@playwright/test';
 import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { PDFDocument } from 'pdf-lib';
 
 test('desktop: edit marked crops and read AI answers throughout the app', { timeout: 120000 }, async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'paper-reader-drawing-ui-'));
@@ -25,6 +26,7 @@ test('desktop: edit marked crops and read AI answers throughout the app', { time
         if (url !== 'https://api.openai.com/v1/responses') throw new Error('Unexpected network request');
         globalThis.testRequests.push(body);
         const question = JSON.stringify(body.input);
+        if (body.instructions?.startsWith('Transcribe the readable text')) return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'Text recognized from the scanned page.' }] }] });
         let text = 'The marked details show how the concepts relate on PDF page 1.';
         if (question.includes('Create exactly 1 different')) text = JSON.stringify({ cards: [{ question: 'What should you read first?', answer: 'Begin with the research question.', page: 1 }] });
         if (question.includes('recall question')) text = JSON.stringify({ question: 'What is the central idea?', answer: 'Read with a clear question in mind.' });
@@ -115,6 +117,34 @@ test('desktop: edit marked crops and read AI answers throughout the app', { time
     await cat.getByRole('button', { name: 'Read aloud', exact: true }).click();
     await expect(page.locator('.speech-status')).toContainText('Reading aloud');
     await cat.getByRole('button', { name: 'Dismiss reminder', exact: true }).click(); await expect(page.locator('.speech-status')).toHaveCount(0);
+    await page.evaluate(() => window.paperReader.saveFocus({ enabled: false, name: 'Mochi', color: 'ginger', minutes: null, quizzes: true }));
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 880));
+    await page.bringToFront();
+    await page.getByRole('button', { name: 'Read this page aloud', exact: true }).click();
+    await expect(page.locator('.speech-status')).toContainText('Reading aloud');
+    await expect(page.locator('.speech-status')).toContainText('PDF page 1');
+    assert.match(await app.evaluate(() => globalThis.speechRequests.at(-1).input), /Reading research/);
+    await page.getByRole('button', { name: 'Next page', exact: true }).click();
+    await expect(page.locator('.speech-status')).toHaveCount(0);
+    await page.locator('.pdf-page:not(.is-loading)').waitFor();
+    await page.getByRole('button', { name: 'Read this page aloud', exact: true }).click();
+    await expect(page.locator('.speech-status')).toContainText('PDF page 2');
+    await expect(page.locator('.speech-status')).toContainText('Reading aloud');
+    await page.screenshot({ path: 'test-results/read-current-page.png' });
+    await page.getByRole('button', { name: 'Stop reading this page', exact: true }).click();
+    await expect(page.locator('.speech-status')).toHaveCount(0);
+    const png = await page.locator('.pdf-page>canvas').evaluate(canvas => canvas.toDataURL('image/png').split(',')[1]);
+    const scanned = await PDFDocument.create(); const picture = await scanned.embedPng(Buffer.from(png, 'base64'));
+    scanned.addPage([picture.width, picture.height]).drawImage(picture, { x: 0, y: 0, width: picture.width, height: picture.height });
+    await page.locator('input[type=file]').setInputFiles({ name: 'scanned-example.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await scanned.save()) });
+    await expect(page.locator('.document-name')).toContainText('scanned-example.pdf');
+    await page.locator('.pdf-page:not(.is-loading)').waitFor();
+    await page.getByRole('button', { name: 'Read this page aloud', exact: true }).click();
+    await expect(page.locator('.speech-status')).toContainText('Reading aloud', { timeout: 15000 });
+    assert.equal(await app.evaluate(() => globalThis.speechRequests.at(-1).input), 'Text recognized from the scanned page.');
+    const recognition = await app.evaluate(() => globalThis.testRequests.at(-1));
+    assert.equal(recognition.input[0].content.length, 1); assert.equal(recognition.input[0].content[0].type, 'input_image');
+    await page.getByRole('button', { name: 'Stop reading this page', exact: true }).click();
     assert.deepEqual(errors, []);
   } catch (error) {
     await mkdir('test-results', { recursive: true }); await page.screenshot({ path: 'test-results/drawing-speech-failure.png' }).catch(() => {}); throw error;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.1 — 2026-09-13
+
+- Add **Read this page aloud** to the PDF toolbar, using the same natural American English AI voice, pause, resume, and stop controls.
+- Read selectable page text directly in its stored reading order. For pages with no text layer, recognize text from the current page image with AI before speaking; normal API charges apply.
+- Label playback with its PDF page number and stop it when switching pages or documents. Cancel page preparation and ignore late recognition results.
+- Keep all version 1.5 features: multiple crops, drawing, AI-answer speech throughout the app, and automatic GitHub release updates.
+
 ## 1.5.0 — 2026-09-13
 
 - Add **Crop & draw**, with a pen, translucent highlighter, arrows, circles, four ink colors, adjustable line sizes, undo, redo, and clear.

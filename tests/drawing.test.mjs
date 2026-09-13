@@ -7,7 +7,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PDFDocument, PDFName, PDFString, degrees } from 'pdf-lib';
 const directory = await mkdtemp(path.join(tmpdir(), 'reader-drawing-'));
-await build({ entryPoints: ['lib/drawing.ts', 'lib/crops.ts', 'lib/pdf-export.ts', 'lib/paper-bundle.ts'], bundle: true, platform: 'node', format: 'esm', outdir: directory });
+await build({ entryPoints: ['lib/page-text.ts', 'lib/drawing.ts', 'lib/crops.ts', 'lib/pdf-export.ts', 'lib/paper-bundle.ts'], bundle: true, platform: 'node', format: 'esm', outdir: directory });
 const load = name => import(pathToFileURL(path.join(directory, name + '.js')));
 const { strokePaths, drawingSchema } = await load('drawing');
 const { cropsSelection, replaceCrop } = await load('crops');
@@ -54,4 +54,10 @@ test('marked notes survive rotated PDF export, export twice without duplication 
   const chat = { id: 'drawing-chat', paperId: paper.id, selection, question: note.question, answer: note.answer, status: 'completed', model: 'gpt-4.1-mini', createdAt: date };
   const bundle = await importBundle(await exportBundle(paper, [chat]));
   assert.deepEqual(bundle.chats[0].selection.crops[0].drawing, drawing);
+});
+
+test('page reading preserves line endings and ignores non-text PDF records', async () => {
+  const { pageText } = await load('page-text');
+  assert.equal(pageText([{ type: 'beginMarkedContent' }, { str: 'Heading', hasEOL: true }, { str: 'First' }, { str: 'paragraph.', hasEOL: true }]), 'Heading\nFirst paragraph.');
+  assert.equal(pageText([{ type: 'endMarkedContent' }]), '');
 });

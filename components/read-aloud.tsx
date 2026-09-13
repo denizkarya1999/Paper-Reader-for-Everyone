@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { LoaderCircle, Pause, Play, Square, Volume2 } from 'lucide-react';
-export type SpeechState = { id: string | null; status: 'idle' | 'loading' | 'playing' | 'paused' | 'error'; part: number; total: number; error?: string };
+export type SpeechState = { id: string | null; status: 'idle' | 'loading' | 'playing' | 'paused' | 'error'; part: number; total: number; error?: string; label?: string };
 function useSpeechState() {
   const [state, setState] = useState<SpeechState>(() => window.readerSpeech?.getState() ?? { id: null, status: 'idle', part: 0, total: 0 });
   useEffect(() => window.readerSpeech?.subscribe(setState), []);
@@ -18,7 +18,7 @@ export function SpeechStatus() {
   if (state.status === 'idle') return null;
   return <div className="speech-status" role="status">
     {state.status === 'loading' ? <LoaderCircle size={16} className="spin"/> : <Volume2 size={16}/>}
-    <span>{state.status === 'error' ? state.error : `${state.status === 'loading' ? 'Preparing AI voice' : state.status === 'paused' ? 'Reading paused' : 'Reading aloud'} · American English · Part ${state.part} of ${state.total}`}</span>
+    <span>{state.status === 'error' ? state.error : `${state.status === 'loading' ? (state.total ? 'Preparing AI voice' : 'Reading scanned page') : state.status === 'paused' ? 'Reading paused' : 'Reading aloud'} · American English${state.label ? ' · ' + state.label : ''}${state.total ? ' · Part ' + state.part + ' of ' + state.total : ''}`}</span>
     {['playing', 'paused'].includes(state.status) && <button onClick={() => window.readerSpeech?.pause()}>{state.status === 'paused' ? <Play size={14}/> : <Pause size={14}/>} {state.status === 'paused' ? 'Resume' : 'Pause'}</button>}
     <button onClick={() => window.readerSpeech?.stop()}><Square size={14}/>{state.status === 'error' ? 'Dismiss' : 'Stop'}</button>
   </div>;

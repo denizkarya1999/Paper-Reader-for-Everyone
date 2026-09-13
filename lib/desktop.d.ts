@@ -9,6 +9,7 @@ declare global {
       getState: () => SpeechState;
       subscribe: (callback: (state: SpeechState) => void) => () => void;
       start: (id: string, text: string) => Promise<void>;
+      startPage: (id: string, value: { text: string; image?: string; label: string }) => Promise<void>;
       stop: () => void;
       pause: () => void;
     };

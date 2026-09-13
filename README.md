@@ -14,12 +14,12 @@ A simple, installable Linux PDF reader. Highlight a passage or crop a figure, as
 
 ## Install on Linux
 
-Download `paper-reader-for-everyone_1.5.0-1_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
+Download `paper-reader-for-everyone_1.5.1-1_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
 
 Open it with your system's software installer, or run this command from your download folder:
 
 ```sh
-sudo apt install ./paper-reader-for-everyone_1.5.0-1_amd64.deb
+sudo apt install ./paper-reader-for-everyone_1.5.1-1_amd64.deb
 ```
 
 Launch **Paper Reader for Everyone** from your application menu.
@@ -89,6 +89,12 @@ The crop preview and image sent to ChatGPT include your marks. Use **Draw on cro
 Press **Read aloud** beside an answer to hear OpenAI’s natural **Marin** AI voice in **American English**. Controls appear for paper and selection answers, saved chats, notes, flashcard questions and revealed answers, focusing tips, and the cat’s quizzes. Use the shared playback bar to **Pause**, **Resume**, or **Stop**. Starting another answer stops the previous one.
 
 Speech uses the API key already configured under **Settings → ChatGPT connection** and incurs OpenAI speech API charges each time you request it. Only the text you choose to read is sent for speech; no PDF is attached to a speech request. Audio is kept in memory, not saved to disk. Long answers are read in consecutive segments; stopping prevents further segments from being requested but does not undo API usage already incurred. An internet connection and an account with access to `gpt-4o-mini-tts` are required.
+
+### Read the current PDF page
+
+Choose **Read this page aloud** in the PDF toolbar. The app speaks the current page with the same American English AI voice and shared pause/resume/stop controls. Changing pages or opening another document stops page playback. The PDF page number appears in the playback bar.
+
+Pages with selectable text are read in their stored text order, which can vary for complex columns. Pages without a text layer are sent as a single page image to OpenAI for text recognition, then spoken; both recognition and speech incur API charges. Recognition may misread difficult scans, equations, or handwriting. Other PDF pages are not attached. Cancel during preparation or stop during playback. Pages over 20,000 characters are reported instead of silently cut short.
 
 ### Automatic updates
 

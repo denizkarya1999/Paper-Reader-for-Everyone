@@ -26,19 +26,22 @@
   window.readerSpeech = {
     getState: () => state,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
-    async start(id, text) {
+    start: (id, text) => start({ id, text }),
+    startPage: (id, value) => start({ id, ...value }),
+    stop: () => { generation++; ownedId = null; clearAudio(); void bridge?.stop(); },
+    pause: () => { void bridge?.pause(); },
+  };
+  async function start(value) {
+      const { id } = value;
       if (!bridge) { update({ id, status: 'error', part: 0, total: 0, error: 'Read aloud is available in the installed app.' }); return; }
       const token = ++generation; ownedId = null; clearAudio();
       try {
-        const next = await bridge.start({ id, text });
+        const next = await bridge.start(value);
         if (token !== generation) return;
         update(next); if (next.status === 'error') return;
         ownedId = id; void playNext(id, token);
       } catch (error) { update({ id, status: 'error', part: 0, total: 0, error: error.message || 'Could not start reading.' }); }
-    },
-    stop: () => { generation++; ownedId = null; clearAudio(); void bridge?.stop(); },
-    pause: () => { void bridge?.pause(); },
-  };
+    }
   if (bridge) { bridge.onState(update); void bridge.getState().then(update); }
   window.addEventListener('beforeunload', () => { if (ownedId) void bridge?.stop(ownedId); clearAudio(); });
 })();
