@@ -37,7 +37,7 @@ else {
       try {
         const url = new URL(request.url);
         const target = path.resolve(publicRoot, '.' + decodeURIComponent(url.pathname));
-        if (url.host !== 'reader' || !target.startsWith(publicRoot + path.sep) || !/\.(?:html|js|mjs|css|png|svg|pfb|ttf|bcmap|wasm)$/i.test(target)) return new Response('Not found', { status: 404 });
+        if (url.host !== 'reader' || !target.startsWith(publicRoot + path.sep) || !/\.(?:html|js|mjs|css|png|svg|pfb|ttf|woff2?|bcmap|wasm)$/i.test(target)) return new Response('Not found', { status: 404 });
         return net.fetch(pathToFileURL(target).href);
       } catch { return new Response('Not found', { status: 404 }); }
     });
@@ -45,7 +45,11 @@ else {
     session.defaultSession.setPermissionCheckHandler(() => false);
     mainWindow = new BrowserWindow({ width: 1280, height: 880, minWidth: 720, minHeight: 550, title: 'Paper Reader for Everyone', backgroundColor: '#f6f7fa', show: false, icon: path.join(__dirname, '../dist/icon.png'), webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true } });
     Menu.setApplicationMenu(null);
-    mainWindow.webContents.setWindowOpenHandler(({ url }) => { if (url === 'https://platform.openai.com/api-keys') void shell.openExternal(url); return { action: 'deny' }; });
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+      try { const target = new URL(url); if (target.protocol === 'https:' || target.protocol === 'http:') void shell.openExternal(target.href); }
+      catch { /* Invalid and non-web links stay closed. */ }
+      return { action: 'deny' };
+    });
     mainWindow.webContents.on('context-menu', (_event, params) => {
       const template = [];
       if (params.isEditable) template.push({ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { type: 'separator' }, { role: 'selectAll' });

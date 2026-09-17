@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.1 — 2026-09-17
+
+- Render ChatGPT replies with full GitHub-flavored Markdown, including nested structure, task lists, links, and reliable line breaks.
+- Typeset inline and display mathematics with KaTeX, including both Markdown dollar delimiters and common LaTeX `\\(...\\)` / `\\[...\\]` output.
+- Correctly display escaped symbols such as `A\\*`, while preserving the original response for one-click copying and prompt pasting.
+- Keep yellow `==highlighted takeaways==`, long code blocks, equations, and wide tables readable inside the answer panel.
+
 ## 1.6.0 — 2026-09-17
 
 - Make every ChatGPT response selectable and add one-click **Copy response** actions in the reader, saved chats, focusing support, and flashcards.

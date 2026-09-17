@@ -25,7 +25,16 @@ test('desktop: collect, remove, send, pin, restore and clear crops across pages'
           globalThis.finishTestRequest = resolve;
           options.signal.addEventListener('abort', () => reject(new Error('Cancelled')), { once: true });
         });
-        return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: '## Comparison\n\n- **First crop:** ==introduces the idea.==\n- **Second crop:** extends it on PDF pages 1 and 2.' }] }] });
+        return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: String.raw`## Comparison
+
+A\* does not necessarily accept a goal as soon as it is **generated**. In the example, Bucharest is first reached with cost \(450\), but another frontier node has \(f=417\), so search continues and later finds a route costing \(418\) (PDF pages 18–19).\
+In short: **Greedy best-first search** ignores the cost already paid and uses only \(h(n)\), the estimated remaining cost (PDF page 8).
+
+==Key takeaway: generation is not acceptance.==
+
+| Search | Uses |
+| --- | --- |
+| A* | $g(n) + h(n)$ |` }] }] });
       };
     });
     await page.waitForFunction(() => !!window.paperReader);
@@ -77,13 +86,21 @@ test('desktop: collect, remove, send, pin, restore and clear crops across pages'
     await expect(page.getByRole('button', { name: 'Remove crop 1', exact: true })).toBeDisabled();
     await expect.poll(() => app.evaluate(() => globalThis.testRequests.length)).toBe(1);
     await app.evaluate(() => { globalThis.finishTestRequest(); globalThis.holdTestRequest = false; });
-    await expect(page.locator('.answer-card h3')).toHaveText('Comparison');
-    await expect(page.locator('.answer-card strong').first()).toHaveText('First crop:');
-    await expect(page.locator('.answer-card mark')).toHaveText('introduces the idea.');
+    await expect(page.locator('.answer-card h2')).toHaveText('Comparison');
+    await expect(page.locator('.answer-card strong').first()).toHaveText('generated');
+    await expect(page.locator('.answer-card strong').nth(1)).toHaveText('Greedy best-first search');
+    await expect(page.locator('.answer-card mark')).toHaveText('Key takeaway: generation is not acceptance.');
+    await expect(page.locator('.answer-card .katex')).toHaveCount(5);
+    await expect(page.locator('.answer-card .response-table-wrap')).toHaveCount(1);
+    await expect(page.locator('.answer-card .response-content')).toContainText('A* does not necessarily');
+    await expect(page.locator('.answer-card .response-content br')).toHaveCount(1);
+    assert.equal((await page.locator('.answer-card .response-content').innerText()).includes('\\('), false);
+    await page.locator('.answer-card').screenshot({ path: 'test-results/formatted-answer.png' });
     await expect(page.locator('.answer-card .assistant-response')).toHaveCSS('user-select', 'text');
     await page.locator('.answer-card').getByRole('button', { name: 'Copy response', exact: true }).click();
     const copied = await page.evaluate(() => window.paperReader.readClipboard());
-    assert.match(copied, /\*\*First crop:\*\*/);
+    assert.match(copied, /A\\\*/);
+    assert.match(copied, /\\\(f=417\\\)/);
     const prompt = page.getByLabel('Question about your selection', { exact: true });
     await prompt.fill('');
     await page.locator('.composer').getByRole('button', { name: 'Paste', exact: true }).click();

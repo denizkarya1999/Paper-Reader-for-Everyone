@@ -1,6 +1,6 @@
 # Paper Reader for Everyone
 
-**Version 1.6.0 · Package revision 1 · Developed by Deniz K. Acikbas**
+**Version 1.6.1 · Package revision 1 · Developed by Deniz K. Acikbas**
 
 A simple, installable Linux PDF and PowerPoint reader. Highlight a passage or crop a figure or slide, ask ChatGPT a question, and pin the answer as a sticky note.
 
@@ -14,12 +14,12 @@ A simple, installable Linux PDF and PowerPoint reader. Highlight a passage or cr
 
 ## Install on Linux
 
-Download `paper-reader-for-everyone_1.6.0-1_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
+Download `paper-reader-for-everyone_1.6.1-1_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
 
 Open it with your system's software installer, or run this command from your download folder:
 
 ```sh
-sudo apt install ./paper-reader-for-everyone_1.6.0-1_amd64.deb
+sudo apt install ./paper-reader-for-everyone_1.6.1-1_amd64.deb
 ```
 
 Launch **Paper Reader for Everyone** from your application menu.
@@ -42,7 +42,7 @@ The package targets **64-bit Intel/AMD Debian-based Linux**, including Ubuntu, D
 
 ### Copy, paste, and formatted answers
 
-ChatGPT replies keep useful visual structure: headings, bullets, numbered steps, bold and italic terms, quotations, code, tables, dividers, and highlighted takeaways. The app renders this formatting as safe interface elements and never executes HTML supplied by a response. Drag over any part of a response and press **Ctrl+C**, right-click and choose **Copy**, or choose **Copy response** to copy the original full reply. Copying the original text preserves its Markdown symbols for reuse elsewhere.
+ChatGPT replies keep useful visual structure: headings, bullets, numbered steps, links, bold and italic terms, quotations, code, tables, task lists, dividers, highlighted takeaways, and mathematical notation. Both `$...$` and the common `\\(...\\)` form render as typeset math. The app renders this formatting as safe interface elements and never executes HTML supplied by a response. Drag over any part of a response and press **Ctrl+C**, right-click and choose **Copy**, or choose **Copy response** to copy the original full reply. Copying the original text preserves its Markdown symbols for reuse elsewhere.
 
 Question boxes support ordinary keyboard paste, the desktop right-click menu, and a visible **Paste** action that inserts clipboard text at the current cursor or replaces the selected prompt text. The same response tools are available in the live answer, saved Chats, Focusing Tips, and flashcards.
 
