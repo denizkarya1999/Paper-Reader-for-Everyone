@@ -1,8 +1,8 @@
 # Paper Reader for Everyone
 
-**Version 1.4.0 · Package revision 1 · Developed by Deniz K. Acikbas**
+**Version 1.6.0 · Package revision 1 · Developed by Deniz K. Acikbas**
 
-A simple, installable Linux PDF reader. Highlight a passage or crop a figure, ask ChatGPT a question, and pin the answer as a sticky note on the PDF.
+A simple, installable Linux PDF and PowerPoint reader. Highlight a passage or crop a figure or slide, ask ChatGPT a question, and pin the answer as a sticky note.
 
 <img src="assets/icon.png" alt="Paper Reader for Everyone icon" width="80" />
 
@@ -14,30 +14,41 @@ A simple, installable Linux PDF reader. Highlight a passage or crop a figure, as
 
 ## Install on Linux
 
-Download `paper-reader-for-everyone_1.5.1-1_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
+Download `paper-reader-for-everyone_1.6.0-1_amd64.deb` from [Releases](https://github.com/denizkarya1999/Paper-Reader-for-Everyone/releases/latest).
 
 Open it with your system's software installer, or run this command from your download folder:
 
 ```sh
-sudo apt install ./paper-reader-for-everyone_1.5.1-1_amd64.deb
+sudo apt install ./paper-reader-for-everyone_1.6.0-1_amd64.deb
 ```
 
 Launch **Paper Reader for Everyone** from your application menu.
 
-The package targets **64-bit Intel/AMD Debian-based Linux**, including Ubuntu, Debian, and Linux Mint. It is a desktop application built with Electron; you do not need Node.js, a browser, or a running web server to use the installed app. This release does not contain an ARM64 package.
+The package targets **64-bit Intel/AMD Debian-based Linux**, including Ubuntu, Debian, and Linux Mint. It is a desktop application built with Electron; you do not need Node.js, a browser, or a running web server to use the installed app. PowerPoint and OpenDocument slide decks use a local LibreOffice conversion; install LibreOffice Impress if it is not already available. The original deck is never uploaded for conversion. This release does not contain an ARM64 package.
 
 ## Use it
 
-1. Choose **Open PDF**, drag a PDF into the window, or try the included example.
+1. Choose **Open document** and select a PDF, PowerPoint (`.ppt` or `.pptx`), OpenDocument presentation (`.odp`), or saved bundle. You can also drag in a PDF or bundle, or try the included example.
 2. Ask about the whole paper immediately, or use **Highlight** / **Crop areas** / **Crop & draw** to focus on a passage, figure, equation, table, or scanned area with the rest of the PDF as context.
 3. Enter your OpenAI API key in the first-run setup, or open **Settings → ChatGPT connection** later. Choose GPT-6 Astra, GPT-5.6 Sol, Terra, or Luna, or the previous GPT-4.1 models.
 4. Type a question and press the arrow button or **Ctrl+Enter**.
-5. Choose **Pin as sticky note**. In **Notes**, edit the answer, change its color, or return to its page.
-6. Open **Chats** to revisit every question and answer, delete one exchange, or delete all chats for this PDF.
-7. Choose **Save PDF** for an annotated copy, or **Save PDF + chats** for a portable ZIP containing both.
-8. Open **Settings** for appearance, your API key/model, cat reminders, and local data. Choose **Light** or **Dark** under Appearance.
-9. Choose **Flashcards** above the PDF to generate a study set with as many as 50 questions and answers.
-10. Open **About Us** in the footer to see the app version, developer, languages, and development agent.
+5. Select any part of the formatted answer and copy it, choose **Copy response** for the whole reply, or use the right-click menu. Use **Paste** to insert clipboard text at the cursor in a prompt.
+6. Choose **Pin as sticky note**. In **Notes**, edit the answer, change its color, or return to its page.
+7. Open **Chats** to revisit every question and answer, delete one exchange, or delete all chats for this document.
+8. Choose **Save PDF** for an annotated copy, or **Save PDF + chats** for a portable ZIP containing both.
+9. Open **Settings** for appearance, your API key/model, cat reminders, and local data. Choose **Light** or **Dark** under Appearance.
+10. Choose **Flashcards** above the document to generate a study set with as many as 50 questions and answers.
+11. Open **About Us** in the footer to see the app version, developer, languages, and development agent.
+
+### Copy, paste, and formatted answers
+
+ChatGPT replies keep useful visual structure: headings, bullets, numbered steps, bold and italic terms, quotations, code, tables, dividers, and highlighted takeaways. The app renders this formatting as safe interface elements and never executes HTML supplied by a response. Drag over any part of a response and press **Ctrl+C**, right-click and choose **Copy**, or choose **Copy response** to copy the original full reply. Copying the original text preserves its Markdown symbols for reuse elsewhere.
+
+Question boxes support ordinary keyboard paste, the desktop right-click menu, and a visible **Paste** action that inserts clipboard text at the current cursor or replaces the selected prompt text. The same response tools are available in the live answer, saved Chats, Focusing Tips, and flashcards.
+
+### Read PowerPoint slides
+
+Choose **Open document** to open `.ppt`, `.pptx`, or `.odp` slides. The app asks the locally installed LibreOffice command to convert the deck to a temporary PDF, deletes the temporary conversion folder after opening, and keeps the original deck name in your library. Each slide becomes a page, so text highlighting, crops, drawings, whole-deck questions, page references, read aloud, notes, saved chats, flashcards, and annotated PDF export work the same way as for a PDF. If LibreOffice is unavailable or a deck cannot be converted, the app explains how to export the deck as PDF instead.
 
 ### Summarize or ask about the whole paper
 

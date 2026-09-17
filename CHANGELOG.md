@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0 — 2026-09-17
+
+- Make every ChatGPT response selectable and add one-click **Copy response** actions in the reader, saved chats, focusing support, and flashcards.
+- Add **Paste** actions at the cursor in question boxes, plus a native right-click Cut, Copy, Paste, Undo, Redo, and Select all menu throughout the desktop app.
+- Render safe, readable ChatGPT formatting for headings, lists, numbered steps, bold and italic text, quotations, code, tables, dividers, and highlighted takeaways without executing model-supplied HTML.
+- Open PowerPoint (`.ppt` and `.pptx`) and OpenDocument (`.odp`) slide decks through local LibreOffice conversion, then use the same highlighting, cropping, questions, notes, flashcards, read-aloud, and PDF export workflow.
+- Keep copied text in its original plain Markdown form so it pastes cleanly into prompts, notes, email, and other apps.
+
 ## 1.5.1 — 2026-09-13
 
 - Add **Read this page aloud** to the PDF toolbar, using the same natural American English AI voice, pause, resume, and stop controls.

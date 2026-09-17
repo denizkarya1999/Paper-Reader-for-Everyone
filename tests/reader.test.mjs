@@ -75,6 +75,7 @@ test('selected text receives the entire PDF and instructions to connect it to ot
   assert.match(sent.input[0].content[1].text, /Selected passage/);
   assert.match(sent.input[0].content[1].text, /Selected PDF page: 1/);
   assert.equal(sent.input[0].content.length, 2); assert.match(sent.instructions, /untrusted/);
+  assert.match(sent.instructions, /readable Markdown/); assert.match(sent.instructions, /==double equals==/); assert.match(sent.instructions, /Do not use HTML/);
   assert.match(sent.instructions, /using the whole paper as context/); assert.match(sent.instructions, /other supporting pages/);
   assert.doesNotMatch(sent.instructions, /only the supplied PDF selection|Do not claim to have read the full document/);
 });
@@ -85,6 +86,17 @@ test('cropped-area request includes both the full PDF and the exact crop', async
     assert.match(value.instructions, /cropped area, using the whole paper/);
     return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'Chart explanation' }] }] });
   }); assert.equal(result.status, 200);
+});
+test('converted PowerPoint decks request slide references and label selections as slides', async () => {
+  const result = await askHandler(request({ ...body, sourceKind: 'slides' }), async (_url, options) => {
+    const value = JSON.parse(options.body);
+    assert.match(value.instructions, /entire supplied slide deck/);
+    assert.match(value.instructions, /Cite supporting locations as slide N/);
+    assert.match(value.input[0].content[1].text, /Selected slide: 1/);
+    assert.match(value.input[0].content[1].text, /whole slide deck/);
+    return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'The diagram appears on slide 1.' }] }] });
+  });
+  assert.equal(result.status, 200); assert.match((await result.json()).answer, /slide 1/);
 });
 test('invalid key, empty selection, external image URL, and unsupported model never contact OpenAI', async () => {
   const fetcher = () => { assert.fail('Should not contact OpenAI'); };
@@ -126,7 +138,7 @@ test('whole-paper questions send every PDF page, preserving images, without a pe
     const decoded = Buffer.from(sent.input[0].content[0].file_data.split(',')[1], 'base64');
     assert.deepEqual(new Uint8Array(decoded), bytes);
     assert.equal((await PDFDocument.load(decoded)).getPageCount(), 2);
-    assert.match(sent.instructions, /Read all pages/); assert.match(sent.instructions, /untrusted/);
+    assert.match(sent.instructions, /entire supplied paper/); assert.match(sent.instructions, /untrusted/);
     assert.doesNotMatch(sent.instructions, /Do not claim to have read the full document/);
     assert.equal(sent.max_output_tokens, 16384);
     return Response.json({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: 'Summary with PDF page 2 reference.' }] }] });

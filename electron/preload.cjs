@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('paperReader', {
   installUpdate: () => ipcRenderer.invoke('updates:install'),
   onUpdates: callback => { const listener = (_event, value) => callback(value); ipcRenderer.on('updates:state', listener); return () => ipcRenderer.removeListener('updates:state', listener); },
   openPdf: () => ipcRenderer.invoke('reader:open'),
+  readClipboard: () => ipcRenderer.invoke('reader:clipboard-read'),
+  writeClipboard: value => ipcRenderer.invoke('reader:clipboard-write', value),
   savePdf: value => ipcRenderer.invoke('reader:save', value),
   saveBundle: value => ipcRenderer.invoke('reader:save-bundle', value),
   getFocus: () => ipcRenderer.invoke('reader:focus-get'),

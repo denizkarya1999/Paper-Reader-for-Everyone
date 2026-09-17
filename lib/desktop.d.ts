@@ -19,7 +19,9 @@ declare global {
       setAutomaticUpdates: (value: boolean) => Promise<UpdateState>;
       installUpdate: () => Promise<UpdateState>;
       onUpdates: (callback: (state: UpdateState) => void) => () => void;
-      openPdf: () => Promise<{ name: string; bytes: Uint8Array } | null>;
+      openPdf: () => Promise<{ name: string; bytes: Uint8Array; convertedSlides?: boolean } | null>;
+      readClipboard: () => Promise<string>;
+      writeClipboard: (value: string) => Promise<void>;
       savePdf: (value: { name: string; bytes: Uint8Array }) => Promise<boolean>;
       saveBundle: (value: { name: string; bytes: Uint8Array }) => Promise<boolean>;
       getFocus: () => Promise<FocusSettings>;

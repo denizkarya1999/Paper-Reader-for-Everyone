@@ -3,7 +3,8 @@ import { build as bundle } from 'esbuild';
 import { copyFile, cp, mkdir, readFile, readdir, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-await build();
+// The runner loads the TypeScript config without writing a temporary bundle into node_modules.
+await build({ configLoader: 'runner' });
 await bundle({ entryPoints: ['lib/ask.ts'], bundle: true, platform: 'node', target: 'node22', format: 'cjs', outfile: 'dist/ask.cjs' });
 await bundle({ entryPoints: ['electron/updates.cjs'], bundle: true, platform: 'node', target: 'node22', format: 'cjs', external: ['electron'], outfile: 'dist/updater.cjs' });
 await copyFile('node_modules/pdfjs-dist/build/pdf.worker.min.mjs', 'dist/pdf.worker.min.mjs');

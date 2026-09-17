@@ -26,6 +26,7 @@ test('reading support sends preferences and a question without any PDF or medica
     assert.doesNotMatch(options.body, /input_file|file_data|input_image|sk-test/);
     assert.match(sent.instructions, /not diagnosis, treatment, medication advice/);
     assert.match(sent.instructions, /Needs vary/); assert.match(sent.instructions, /not a diagnosis you should infer/);
+    assert.match(sent.instructions, /short Markdown/); assert.match(sent.instructions, /==double equals==/); assert.match(sent.instructions, /Do not use HTML/);
     return reply('Choose one sentence to read, then decide whether to continue.');
   });
   assert.equal(result.status, 200); assert.match((await result.json()).answer, /one sentence/);

@@ -25,7 +25,7 @@ test('desktop: collect, remove, send, pin, restore and clear crops across pages'
           globalThis.finishTestRequest = resolve;
           options.signal.addEventListener('abort', () => reject(new Error('Cancelled')), { once: true });
         });
-        return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'These two crops show related ideas on PDF pages 1 and 2.' }] }] });
+        return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: '## Comparison\n\n- **First crop:** ==introduces the idea.==\n- **Second crop:** extends it on PDF pages 1 and 2.' }] }] });
       };
     });
     await page.waitForFunction(() => !!window.paperReader);
@@ -77,7 +77,17 @@ test('desktop: collect, remove, send, pin, restore and clear crops across pages'
     await expect(page.getByRole('button', { name: 'Remove crop 1', exact: true })).toBeDisabled();
     await expect.poll(() => app.evaluate(() => globalThis.testRequests.length)).toBe(1);
     await app.evaluate(() => { globalThis.finishTestRequest(); globalThis.holdTestRequest = false; });
-    await expect(page.locator('.answer-card')).toContainText('These two crops');
+    await expect(page.locator('.answer-card h3')).toHaveText('Comparison');
+    await expect(page.locator('.answer-card strong').first()).toHaveText('First crop:');
+    await expect(page.locator('.answer-card mark')).toHaveText('introduces the idea.');
+    await expect(page.locator('.answer-card .assistant-response')).toHaveCSS('user-select', 'text');
+    await page.locator('.answer-card').getByRole('button', { name: 'Copy response', exact: true }).click();
+    const copied = await page.evaluate(() => window.paperReader.readClipboard());
+    assert.match(copied, /\*\*First crop:\*\*/);
+    const prompt = page.getByLabel('Question about your selection', { exact: true });
+    await prompt.fill('');
+    await page.locator('.composer').getByRole('button', { name: 'Paste', exact: true }).click();
+    await expect(prompt).toHaveValue(copied);
     const sent = await app.evaluate(() => globalThis.testRequests[0]);
     const content = sent.input[0].content;
     assert.equal(content.filter(item => item.type === 'input_file').length, 1);

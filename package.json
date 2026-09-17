@@ -1,7 +1,7 @@
 {
   "name": "paper-reader-for-everyone",
-  "version": "1.5.1",
-  "description": "A Linux PDF reader with ChatGPT, flashcards, reading support, saved chats, sticky notes, themes, and a focus cat.",
+  "version": "1.6.0",
+  "description": "A Linux PDF and PowerPoint reader with ChatGPT, formatted answers, flashcards, reading support, saved chats, sticky notes, themes, and a focus cat.",
   "author": {
     "name": "Deniz K. Acikbas"
   },
@@ -16,6 +16,7 @@
   },
   "keywords": [
     "pdf-reader",
+    "powerpoint-reader",
     "linux",
     "chatgpt",
     "openai",
@@ -95,6 +96,9 @@
       "syncDesktopName": true
     },
     "deb": {
+      "recommends": [
+        "libreoffice-impress"
+      ],
       "depends": [
         "libgtk-3-0",
         "libnss3",

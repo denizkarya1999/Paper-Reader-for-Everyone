@@ -1,9 +1,10 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, session, Menu, protocol, net, safeStorage, screen, powerMonitor } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, ipcMain, shell, session, Menu, protocol, net, safeStorage, screen, powerMonitor } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { pathToFileURL } = require('node:url');
 const { askHandler, MAX_REQUEST_BYTES, DEFAULT_MODEL, MODEL_IDS, MAX_CROPS, MAX_CROP_IMAGE_LENGTH, MAX_CROP_TOTAL_LENGTH } = require('../dist/ask.cjs');
 const { createConnectionStore } = require('./connection-store.cjs');
+const { convertSlides } = require('./slides.cjs');
 
 app.setName('Paper Reader for Everyone');
 // Chromium does not automatically select a secret store on LXQt/LXDE.
@@ -45,6 +46,12 @@ else {
     mainWindow = new BrowserWindow({ width: 1280, height: 880, minWidth: 720, minHeight: 550, title: 'Paper Reader for Everyone', backgroundColor: '#f6f7fa', show: false, icon: path.join(__dirname, '../dist/icon.png'), webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true } });
     Menu.setApplicationMenu(null);
     mainWindow.webContents.setWindowOpenHandler(({ url }) => { if (url === 'https://platform.openai.com/api-keys') void shell.openExternal(url); return { action: 'deny' }; });
+    mainWindow.webContents.on('context-menu', (_event, params) => {
+      const template = [];
+      if (params.isEditable) template.push({ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { type: 'separator' }, { role: 'selectAll' });
+      else if (params.selectionText) template.push({ role: 'copy' }, { type: 'separator' }, { role: 'selectAll' });
+      if (template.length) Menu.buildFromTemplate(template).popup({ window: mainWindow });
+    });
     mainWindow.webContents.on('will-navigate', event => event.preventDefault());
     mainWindow.on('ready-to-show', () => mainWindow.show());
     mainWindow.webContents.on('did-start-navigation', (_event, _url, _inPlace, isMainFrame) => { if (isMainFrame) speech.stopOwner(mainWindow.webContents.id); });
@@ -59,14 +66,17 @@ app.on('before-quit', () => updates?.stop());
 
 ipcMain.handle('reader:open', async event => {
   assertTrusted(event);
-  const result = await dialog.showOpenDialog(mainWindow, { title: 'Open a PDF or saved bundle', properties: ['openFile'], filters: [{ name: 'PDF documents and saved bundles', extensions: ['pdf', 'zip'] }] });
+  const result = await dialog.showOpenDialog(mainWindow, { title: 'Open a PDF, PowerPoint, or saved bundle', properties: ['openFile'], filters: [{ name: 'Reading documents and saved bundles', extensions: ['pdf', 'ppt', 'pptx', 'odp', 'zip'] }] });
   if (result.canceled || !result.filePaths[0]) return null;
   const filename = result.filePaths[0]; const stat = await fs.stat(filename);
-  const limit = filename.toLowerCase().endsWith('.zip') ? 200_000_000 : 50 * 1024 * 1024;
-  if (!stat.isFile() || stat.size > limit) throw new Error('Choose a PDF below 50 MB or a saved ZIP bundle below 200 MB.');
-  const bytes = await fs.readFile(filename);
-  return { name: path.basename(filename), bytes: new Uint8Array(bytes) };
+  const extension = path.extname(filename).toLowerCase();
+  const limit = extension === '.zip' ? 200_000_000 : ['.ppt', '.pptx', '.odp'].includes(extension) ? 100_000_000 : 50 * 1024 * 1024;
+  if (!stat.isFile() || stat.size > limit) throw new Error('Choose a PDF below 50 MB, a slide deck below 100 MB, or a saved ZIP bundle below 200 MB.');
+  const bytes = ['.ppt', '.pptx', '.odp'].includes(extension) ? await convertSlides(filename, app.getPath('documents')) : new Uint8Array(await fs.readFile(filename));
+  return { name: path.basename(filename), bytes, convertedSlides: ['.ppt', '.pptx', '.odp'].includes(extension) };
 });
+ipcMain.handle('reader:clipboard-read', event => { assertTrusted(event); return clipboard.readText().slice(0, 200_000); });
+ipcMain.handle('reader:clipboard-write', (event, value) => { assertTrusted(event); if (typeof value !== 'string' || value.length > 200_000) throw new Error('Invalid clipboard text.'); clipboard.writeText(value); });
 ipcMain.handle('reader:save', async (event, value) => {
   assertTrusted(event);
   if (!value || typeof value.name !== 'string' || !(value.bytes instanceof Uint8Array) || value.bytes.length > 150 * 1024 * 1024 || Buffer.from(value.bytes.subarray(0, 5)).toString() !== '%PDF-') throw new Error('Invalid PDF export.');
